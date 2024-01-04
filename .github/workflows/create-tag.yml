@@ -1,0 +1,33 @@
+name: Create Tag
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'version.yaml'
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the version
+        id: get-version
+        run: echo "::set-output name=version::$(grep 'version' version.yaml | awk -F':' '{print $2}' | tr -d ' ')"
+
+      - name: Create a tag
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = "${{ steps.get-version.outputs.version }}"
+            const tag_name = `${version}`
+            const tag_message = `Release ${tag_name}`
+            github.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag_name}`,
+              sha: context.sha
+            })
