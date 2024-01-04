@@ -1,4 +1,4 @@
-module roids
+module github.com/ShounakA/roids
 
 go 1.21.1
 
