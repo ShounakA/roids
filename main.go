@@ -1,6 +1,6 @@
 package main
 
-import "roids/needle"
+import "github.com/ShounakA/roids/needle"
 
 type IOmegalulService interface {
 	SayOmegalul()

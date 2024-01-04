@@ -11,8 +11,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"roids/col"
 	"sync"
+
+	"github.com/ShounakA/roids/col"
 
 	"github.com/heimdalr/dag"
 )
