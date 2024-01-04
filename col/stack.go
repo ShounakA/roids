@@ -30,7 +30,13 @@ func NewStack[T any](initValue *T) *Stack[T] {
 	head := new(Node[T])
 	head.value = initValue
 	head.next = new(Node[T])
-	return &Stack[T]{head: head, length: 1}
+	var length uint64
+	if initValue == nil {
+		length = 0
+	} else {
+		length = 1
+	}
+	return &Stack[T]{head: head, length: length}
 }
 
 func (stack *Stack[T]) Push(newItem T) {
