@@ -2,7 +2,7 @@
 
 Roids is a simple dependency injection container that you can use to share and pass services into your application.
 
-[![Go](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
+[![Roids Main Build](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
 
 ## Get Roids
 ```
@@ -64,6 +64,7 @@ func main() {
 	depService := needle.Inject[IDepService]()
 	juiceService := needle.Inject[IJuiceService]()
 
+	// Do stuff
 	juiceService.Juice(3)
 	testService.Something()
 	depService.AlsoDoSomething()
