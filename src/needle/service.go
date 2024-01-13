@@ -23,7 +23,7 @@ type Service struct {
 // Uses the specification (interface or struct) to inject an implmentation into the IoC container
 func AddService[T interface{}](spec T, impl any) {
 	// Get IoC Container
-	container := GetNeedle()
+	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
 
 	// Add vertex for the service being added
@@ -49,7 +49,7 @@ func AddService[T interface{}](spec T, impl any) {
 
 // Gets an implementation of a service based on an specification from the container.
 func Inject[T interface{}]() T {
-	c := GetNeedle()
+	c := GetRoids()
 	implType := reflect.TypeOf(new(T)).Elem()
 	return (*(c.services[implType].instance)).(T)
 }

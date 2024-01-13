@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [closed]
     paths:
-      - 'version.yaml'
+      - 'src/version.yaml'
 
 jobs:
   create-tag:
@@ -16,7 +16,7 @@ jobs:
 
       - name: Get the version
         id: get-version
-        run: echo "::set-output name=version::$(grep 'version' version.yaml | awk -F':' '{print $2}' | tr -d ' ')"
+        run: echo "::set-output name=version::$(grep 'version' src/version.yaml | awk -F':' '{print $2}' | tr -d ' ')"
 
       - name: Create a tag
         uses: actions/github-script@v4

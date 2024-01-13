@@ -18,27 +18,12 @@ import (
 	"github.com/heimdalr/dag"
 )
 
-// Needle is a struct that holds all the dependencies for the application.
-// Though you can create this struct it is recommended to use the `GetNeedle` function to get the global instance.
-type Needle struct {
-	services map[reflect.Type]*Service
-	context  context.Context
-}
-
 // Thread-safe function to get the global instance of the dependency container.
-func GetNeedle() *Needle {
+func GetRoids() *needleContainer {
 	once.Do(func() {
-		instance = NewDependencyContainer()
+		instance = newNeedle()
 	})
 	return instance
-}
-
-// Creates a new instance of the dependency container.
-// This function should not be used directly. Use `GetContainer` instead.
-func NewDependencyContainer() *Needle {
-	return &Needle{
-		services: services,
-	}
 }
 
 // Method to traverse the entire dependency graph
@@ -48,7 +33,7 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 	pv.Hist.Push(sType)
 	isLeaf, err := servicesGraph.IsLeaf(id)
 	if err != nil {
-		println("error")
+		println("Node with id not found")
 	}
 	services[sType].isLeaf = isLeaf
 }
@@ -56,7 +41,7 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 // Build the dependency injection IoC container
 func Build() {
 	// Instantiate/Get IoC Container
-	_ = GetNeedle()
+	_ = GetRoids()
 
 	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
 	servicesGraph.BFSWalk(&v)
@@ -91,12 +76,11 @@ func PrintDependencyGraph() {
 }
 
 /**
-NOT EXPORTED STUFF
-vvvvvvvvvvvvvvvvv
+Private stuff
 */
 
 // Application wide instance of the dependency container.
-var instance *Needle
+var instance *needleContainer
 
 // Map of all the services in the container.
 var services = make(map[reflect.Type]*Service)
@@ -147,5 +131,20 @@ func createLeafDep(sType reflect.Type) {
 
 	} else {
 		fmt.Println("Instance is not a function")
+	}
+}
+
+// needleContainer is a struct that holds all the dependencies for the application.
+// It is recommended to use the `GetNeedle` function to get the global instance.
+type needleContainer struct {
+	services map[reflect.Type]*Service
+	context  context.Context
+}
+
+// Creates a new instance of the dependency container.
+// This function should not be used directly. Use `GetNeedle` instead.
+func newNeedle() *needleContainer {
+	return &needleContainer{
+		services: services,
 	}
 }

@@ -1,3 +1,8 @@
+/**
+ * Author: Shounak Amladi
+ * Date Created: 25/12/2023
+ * A small application using Roids.
+ */
 package main
 
 import "github.com/ShounakA/roids/needle"
@@ -91,7 +96,7 @@ func (js *JuiceService) Juice(num uint) {
 
 func main() {
 
-	_ = needle.GetNeedle()
+	_ = needle.GetRoids()
 
 	needle.AddService(new(IOmegalulService), NewOmegalul)
 	needle.AddService(new(IDepService), NewDepService)
@@ -108,5 +113,4 @@ func main() {
 	depService.AlsoDoSomething()
 	testService.Omegalul()
 
-	// needle.PrintDependencyGraph()
 }
