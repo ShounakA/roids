@@ -71,3 +71,8 @@ func main() {
 	testService.Omegalul()
 }
 ```
+## Future Enhancements
+
+- Dependency lifetimes
+- Better Errors
+- Internal logging
