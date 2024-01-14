@@ -94,9 +94,6 @@ Private stuff
 // Application wide instance of the dependency container.
 var instance *needleContainer
 
-// Graph of dependent services.
-// var servicesGraph = dag.NewDAG()
-
 // Atomic boolean to ensure that the container is only created once.
 var once sync.Once
 
