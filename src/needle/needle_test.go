@@ -101,8 +101,8 @@ func (obj *toCycleService) WontWorkBeforeB() string {
 	return "b"
 }
 
-func (obj *bCycleService) WontWorkBeforeMain() string {
-	return "main"
+func (obj *bCycleService) WontWorkBeforeMain() {
+	return
 }
 
 func TestGetNeedle(t *testing.T) {
@@ -119,11 +119,11 @@ func TestAddService(t *testing.T) {
 
 	err := needle.AddService(new(testInterface), newTestObject)
 	if err != nil {
-		t.Error("Should be able to add simple dependencies.")
+		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
 	err = needle.AddService(new(dependedService), newDependedObject)
 	if err != nil {
-		t.Error("Should be able to add simple dependencies.")
+		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
 
 	needle.UNSAFE_Clear()
@@ -162,4 +162,59 @@ func TestAddService_CircularDependency(t *testing.T) {
 	}
 
 	needle.UNSAFE_Clear()
+}
+
+func TestAddService_InvalidInterface(t *testing.T) {
+	_ = needle.GetRoids()
+
+	err := needle.AddService(new(iCycleService), newBCycle)
+	if err == nil {
+		t.Error("Should catch that impl does not match spec.", err.Error())
+	}
+	if err.Error() != "'bCycleService' must implement 'iCycleService' to be added as a service." {
+		t.Error("Unexpected error returned.", err.Error())
+	}
+	needle.UNSAFE_Clear()
+}
+
+func TestAddService_NotAConstructor(t *testing.T) {
+	_ = needle.GetRoids()
+
+	err := needle.AddService(new(iCycleService), &cycleService{})
+	if err == nil {
+		t.Error("Should catch that impl does not match spec.", err.Error())
+	}
+	if err.Error() != "Must provide a constructor that returns the implementation." {
+		t.Error("Unexpected error returned.", err.Error())
+	}
+	needle.UNSAFE_Clear()
+}
+
+func TestInject(t *testing.T) {
+
+	_ = needle.GetRoids()
+
+	err := needle.AddService(new(testInterface), newTestObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = needle.AddService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	needle.Build()
+
+	testService := needle.Inject[testInterface]()
+	if testService.DoSomethingBob() != "Testing add" {
+		t.Error("Did not inject service correctly.")
+	}
+	needle.UNSAFE_Clear()
+}
+
+func TestBuild(t *testing.T) {
+	var _ iCycleService = &cycleService{} // This will fail if cycleService does not implement iCycleService
+	// var _f iToCycleService = &toCycleService{}
+	// var _d ibCycleService = &bCycleService{}
+
 }

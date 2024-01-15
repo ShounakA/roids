@@ -8,6 +8,8 @@
 package needle
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/heimdalr/dag"
@@ -27,13 +29,18 @@ type Service struct {
 // Uses the specification (interface or struct) to inject an implmentation into the IoC container
 func AddService[T interface{}](spec T, impl any) error {
 
-	// spec must be interface
-	// imple must be func
-
 	// Get IoC Container
 	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
+	if reflect.ValueOf(impl).Kind() != reflect.Func {
+		return errors.New("Must provide a constructor that returns the implementation.")
+	}
 	ftype := reflect.TypeOf(impl)
+	implType := ftype.Out(0)
+	if !implType.Implements(specType) {
+		errMsg := fmt.Sprintf("'%s' must implement '%s' to be added as a service.", implType.Elem().Name(), specType.Name())
+		return errors.New(errMsg)
+	}
 
 	// Add vertex for the service being added
 	thisV, err := container.servicesGraph.AddVertex(specType)
@@ -73,7 +80,6 @@ func Inject[T interface{}]() T {
 type reverseLookupVisiter struct {
 	vertexId   string
 	searchType reflect.Type
-	updateType reflect.Type
 }
 
 // Function to lookup vertexId based on spec
