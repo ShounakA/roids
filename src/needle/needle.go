@@ -47,7 +47,7 @@ func Build() {
 	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
 	roids.servicesGraph.BFSWalk(&v)
 
-	for v.Hist.GetSize()-1 > 0 {
+	for v.Hist.GetSize() > 0 {
 		serviceType := *v.Hist.Pop()
 		service := roids.services[serviceType]
 		if service.isLeaf && !service.created {
