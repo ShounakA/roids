@@ -28,27 +28,28 @@ func GetRoids() *needleContainer {
 
 // Method to traverse the entire dependency graph
 func (pv *depVisiter) Visit(v dag.Vertexer) {
+	roids := GetRoids()
 	id, value := v.Vertex()
 	sType := value.(reflect.Type)
 	pv.Hist.Push(sType)
-	isLeaf, err := servicesGraph.IsLeaf(id)
+	isLeaf, err := roids.servicesGraph.IsLeaf(id)
 	if err != nil {
 		println("Node with id not found")
 	}
-	services[sType].isLeaf = isLeaf
+	roids.services[sType].isLeaf = isLeaf
 }
 
 // Build the dependency injection IoC container
 func Build() {
 	// Instantiate/Get IoC Container
-	_ = GetRoids()
+	roids := GetRoids()
 
 	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
-	servicesGraph.BFSWalk(&v)
+	roids.servicesGraph.BFSWalk(&v)
 
-	for v.Hist.GetSize()-1 > 0 {
+	for v.Hist.GetSize() > 0 {
 		serviceType := *v.Hist.Pop()
-		service := services[serviceType]
+		service := roids.services[serviceType]
 		if service.isLeaf && !service.created {
 			createLeafDep(serviceType)
 		} else if !service.isLeaf && !service.created {
@@ -72,7 +73,18 @@ func Build() {
 
 // Prints all dependencies in the container
 func PrintDependencyGraph() {
-	fmt.Println(servicesGraph.String())
+	roids := GetRoids()
+	fmt.Println(roids.servicesGraph.String())
+}
+
+// Clears the container of all services
+// SUPER UNSAFE. Only used during testing. Dont use while running an application.
+func UNSAFE_Clear() {
+	roids := GetRoids()
+	for t := range roids.services {
+		delete(roids.services, t)
+	}
+	roids.servicesGraph = dag.NewDAG()
 }
 
 /**
@@ -82,14 +94,8 @@ Private stuff
 // Application wide instance of the dependency container.
 var instance *needleContainer
 
-// Map of all the services in the container.
-var services = make(map[reflect.Type]*Service)
-
 // Atomic boolean to ensure that the container is only created once.
 var once sync.Once
-
-// Graph of dependent services.
-var servicesGraph = dag.NewDAG()
 
 // Dependency visitor. It keeps track of the nodes visited into a stack,
 // so that we can instantiate leaf deps by popping them out.
@@ -100,6 +106,7 @@ type depVisiter struct {
 
 // Get all deps before using injector.
 func getArgsForFunction(service *Service) []reflect.Value {
+	roids := GetRoids()
 	injected := service.Injector
 	injectedVal := reflect.ValueOf(injected)
 	injectedType := injectedVal.Type()
@@ -109,7 +116,7 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	// Get the type of each argument
 	for i := 0; i < injectedType.NumIn(); i++ {
 		serviceType := injectedType.In(i)
-		instanceVal := reflect.ValueOf(*(services[serviceType].instance))
+		instanceVal := reflect.ValueOf(*(roids.services[serviceType].instance))
 		argValues[i] = instanceVal
 	}
 	return argValues
@@ -119,15 +126,16 @@ func getArgsForFunction(service *Service) []reflect.Value {
 // These services should not have parameters in there injector functions.
 // Meaning they can be created easily without problem.
 func createLeafDep(sType reflect.Type) {
-	injected := services[sType].Injector
+	roids := GetRoids()
+	injected := roids.services[sType].Injector
 	injectedVal := reflect.ValueOf(injected)
 	if injectedVal.Kind() == reflect.Func {
 		// If the instance is a function, call it
 		results := injectedVal.Call(nil)
 		// Handle results if necessary
 		instance := results[0].Interface()
-		services[sType].instance = &instance
-		services[sType].created = true
+		roids.services[sType].instance = &instance
+		roids.services[sType].created = true
 
 	} else {
 		fmt.Println("Instance is not a function")
@@ -137,14 +145,16 @@ func createLeafDep(sType reflect.Type) {
 // needleContainer is a struct that holds all the dependencies for the application.
 // It is recommended to use the `GetNeedle` function to get the global instance.
 type needleContainer struct {
-	services map[reflect.Type]*Service
-	context  context.Context
+	services      map[reflect.Type]*Service
+	servicesGraph *dag.DAG
+	context       context.Context
 }
 
 // Creates a new instance of the dependency container.
 // This function should not be used directly. Use `GetNeedle` instead.
 func newNeedle() *needleContainer {
 	return &needleContainer{
-		services: services,
+		services:      make(map[reflect.Type]*Service),
+		servicesGraph: dag.NewDAG(),
 	}
 }
