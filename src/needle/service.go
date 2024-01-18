@@ -8,10 +8,10 @@
 package needle
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
+	"github.com/ShounakA/roids/errors"
 	"github.com/heimdalr/dag"
 )
 
@@ -33,13 +33,13 @@ func AddService[T interface{}](spec T, impl any) error {
 	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
 	if reflect.ValueOf(impl).Kind() != reflect.Func {
-		return errors.New("Must provide a constructor that returns the implementation.")
+		return errors.NewNeedleError("Must provide a constructor that returns the implementation.", specType)
 	}
 	ftype := reflect.TypeOf(impl)
 	implType := ftype.Out(0)
 	if !implType.Implements(specType) {
 		errMsg := fmt.Sprintf("'%s' must implement '%s' to be added as a service.", implType.Elem().Name(), specType.Name())
-		return errors.New(errMsg)
+		return errors.NewNeedleError(errMsg, specType)
 	}
 
 	// Add vertex for the service being added
@@ -64,7 +64,14 @@ func AddService[T interface{}](spec T, impl any) error {
 		// Add edge
 		err = container.servicesGraph.AddEdge(thisV, depV)
 		if err != nil {
-			return err
+			switch e := err.(type) {
+			case dag.EdgeLoopError:
+				return errors.NewNeedleError("Circular dependency detected.", specType)
+			case dag.EdgeDuplicateError:
+				return errors.NewNeedleError("Duplicate service and dependency detected.", specType)
+			default:
+				return errors.NewNeedleError(e.Error(), specType)
+			}
 		}
 	}
 	return nil
