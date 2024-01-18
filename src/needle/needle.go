@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/ShounakA/roids/col"
+	"github.com/ShounakA/roids/errors"
 
 	"github.com/heimdalr/dag"
 )
@@ -32,15 +33,12 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 	id, value := v.Vertex()
 	sType := value.(reflect.Type)
 	pv.Hist.Push(sType)
-	isLeaf, err := roids.servicesGraph.IsLeaf(id)
-	if err != nil {
-		println("Node with id not found")
-	}
+	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
 	roids.services[sType].isLeaf = isLeaf
 }
 
 // Build the dependency injection IoC container
-func Build() {
+func Build() error {
 	// Instantiate/Get IoC Container
 	roids := GetRoids()
 
@@ -64,11 +62,15 @@ func Build() {
 
 			} else {
 				fmt.Println("Instance is not a function")
+				return errors.NewNeedleError("Injector is not a function.", serviceType)
 			}
+		} else if service.created {
+			fmt.Println("Could not create service. It is already created.")
 		} else {
-			fmt.Println("Could not create service.")
+			return errors.NewNeedleError("Unexpected error occured.", serviceType)
 		}
 	}
+	return nil
 }
 
 // Prints all dependencies in the container
@@ -125,7 +127,7 @@ func getArgsForFunction(service *Service) []reflect.Value {
 // Creates an instance of a leaf service.
 // These services should not have parameters in there injector functions.
 // Meaning they can be created easily without problem.
-func createLeafDep(sType reflect.Type) {
+func createLeafDep(sType reflect.Type) error {
 	roids := GetRoids()
 	injected := roids.services[sType].Injector
 	injectedVal := reflect.ValueOf(injected)
@@ -139,7 +141,9 @@ func createLeafDep(sType reflect.Type) {
 
 	} else {
 		fmt.Println("Instance is not a function")
+		return errors.NewNeedleError("Injector is not a function", sType)
 	}
+	return nil
 }
 
 // needleContainer is a struct that holds all the dependencies for the application.
