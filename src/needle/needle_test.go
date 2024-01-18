@@ -113,15 +113,15 @@ func TestGetNeedle(t *testing.T) {
 	}
 }
 
-func TestAddService(t *testing.T) {
+func TestAddLifetimeService(t *testing.T) {
 
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(testInterface), newTestObject)
+	err := needle.AddLifetimeService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = needle.AddService(new(dependedService), newDependedObject)
+	err = needle.AddLifetimeService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
@@ -129,15 +129,15 @@ func TestAddService(t *testing.T) {
 	needle.UNSAFE_Clear()
 }
 
-func TestAddService_IncorrectOrder(t *testing.T) {
+func TestAddLifetimeService_IncorrectOrder(t *testing.T) {
 
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(dependedService), newDependedObject)
+	err := needle.AddLifetimeService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependency", err.Error())
 	}
-	err = needle.AddService(new(testInterface), newTestObject)
+	err = needle.AddLifetimeService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Added dependency with first define the service.", err.Error())
 	}
@@ -145,18 +145,18 @@ func TestAddService_IncorrectOrder(t *testing.T) {
 
 }
 
-func TestAddService_CircularDependency(t *testing.T) {
+func TestAddLifetimeService_CircularDependency(t *testing.T) {
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(iCycleService), newCycle)
+	err := needle.AddLifetimeService(new(iCycleService), newCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = needle.AddService(new(iToCycleService), newToCycle)
+	err = needle.AddLifetimeService(new(iToCycleService), newToCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = needle.AddService(new(ibCycleService), newBCycle)
+	err = needle.AddLifetimeService(new(ibCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch circular dependency here!!")
 	}
@@ -164,10 +164,10 @@ func TestAddService_CircularDependency(t *testing.T) {
 	needle.UNSAFE_Clear()
 }
 
-func TestAddService_InvalidInterface(t *testing.T) {
+func TestAddLifetimeService_InvalidInterface(t *testing.T) {
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(iCycleService), newBCycle)
+	err := needle.AddLifetimeService(new(iCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
@@ -177,10 +177,10 @@ func TestAddService_InvalidInterface(t *testing.T) {
 	needle.UNSAFE_Clear()
 }
 
-func TestAddService_NotAConstructor(t *testing.T) {
+func TestAddLifetimeService_NotAConstructor(t *testing.T) {
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(iCycleService), &cycleService{})
+	err := needle.AddLifetimeService(new(iCycleService), &cycleService{})
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
@@ -194,11 +194,11 @@ func TestInject(t *testing.T) {
 
 	_ = needle.GetRoids()
 
-	err := needle.AddService(new(testInterface), newTestObject)
+	err := needle.AddLifetimeService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = needle.AddService(new(dependedService), newDependedObject)
+	err = needle.AddLifetimeService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}

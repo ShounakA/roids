@@ -17,17 +17,19 @@ import (
 
 // Struct representing an injectable service. (aka Provider, Assembler, Service, or Injector)
 type Service struct {
-	Injector any
-	Id       string
-	created  bool
-	implType reflect.Type
-	instance *any
-	isLeaf   bool
+	Injector     any
+	Id           string
+	LifetimeType string
+	SpecType     reflect.Type
+	created      bool
+	implType     reflect.Type
+	instance     *any
+	isLeaf       bool
 }
 
-// Adds a service to the container.
+// Adds a lifetime service to the container.
 // Uses the specification (interface or struct) to inject an implmentation into the IoC container
-func AddService[T interface{}](spec T, impl any) error {
+func AddLifetimeService[T interface{}](spec T, impl any) error {
 
 	// Get IoC Container
 	container := GetRoids()
@@ -51,7 +53,7 @@ func AddService[T interface{}](spec T, impl any) error {
 		container.servicesGraph.BFSWalk(lookup)
 		thisV = lookup.vertexId
 	}
-	container.services[specType] = &Service{Id: thisV, Injector: impl}
+	container.services[specType] = &Service{Id: thisV, Injector: impl, LifetimeType: "Lifetime"}
 
 	// Get all dependencies in injector
 	for i := 0; i < ftype.NumIn(); i++ {
@@ -67,6 +69,16 @@ func AddService[T interface{}](spec T, impl any) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func AddTransientService[T interface{}](spec T, impl any) error {
+	container := GetRoids()
+	err := AddLifetimeService(spec, impl)
+	if err != nil {
+		return err
+	}
+	container.services[reflect.TypeOf(spec).Elem()].LifetimeType = "Transient"
 	return nil
 }
 

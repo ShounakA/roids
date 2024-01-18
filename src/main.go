@@ -98,10 +98,10 @@ func main() {
 
 	_ = needle.GetRoids()
 
-	needle.AddService(new(IOmegalulService), NewOmegalul)
-	needle.AddService(new(IDepService), NewDepService)
-	needle.AddService(new(IJuiceService), NewJuiceService)
-	needle.AddService(new(ITestService), NewTestService)
+	needle.AddLifetimeService(new(IOmegalulService), NewOmegalul)
+	needle.AddLifetimeService(new(IDepService), NewDepService)
+	needle.AddLifetimeService(new(IJuiceService), NewJuiceService)
+	needle.AddLifetimeService(new(ITestService), NewTestService)
 	needle.Build()
 
 	testService := needle.Inject[ITestService]()
