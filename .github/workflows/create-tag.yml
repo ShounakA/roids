@@ -24,7 +24,7 @@ jobs:
           github-token: ${{ secrets.ROID_PAT }}
           script: |
             const version = "${{ steps.get-version.outputs.version }}"
-            const tag_name = `${version}`
+            const tag_name = `v${version}`
             const tag_message = `Release ${tag_name}`
             github.git.createRef({
               owner: context.repo.owner,
