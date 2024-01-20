@@ -9,8 +9,10 @@ package roids
 
 import (
 	"fmt"
+	"hash"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/heimdalr/dag"
 )
 
@@ -28,6 +30,10 @@ type Service struct {
 
 func (s *Service) String() string {
 	return fmt.Sprintf("%s:%s", s.lifetimeType, s.SpecType)
+}
+
+func (s *Service) ID() string {
+	return uuid.NewSHA1(uuid.UUID{}, []byte(s.String())).String()
 }
 
 // Adds a lifetime service to the container.
@@ -59,7 +65,8 @@ func AddLifetimeService[T interface{}](spec T, impl any) error {
 		service.Injector = impl
 		service.lifetimeType = lifeService.lifetimeType
 		service.SpecType = lifeService.SpecType
-		thisV = service.Id
+		service.Id = lifeService.Id
+		thisV = lifeService.Id
 	}
 
 	// Get all dependencies in injector
@@ -69,7 +76,7 @@ func AddLifetimeService[T interface{}](spec T, impl any) error {
 		depService := GetServiceByType(container.servicesGraph, field)
 		if depService == nil {
 			// Ignore the error as service = nil meaning we should not get an error adding vertex.
-			depV, _ := container.servicesGraph.AddVertex(&Service{SpecType: field})
+			depV, _ := container.servicesGraph.AddVertex(&Service{SpecType: field, lifetimeType: "Lifetime"})
 			err = container.servicesGraph.AddEdge(thisV, depV)
 		} else {
 			err = container.servicesGraph.AddEdge(thisV, depService.Id)
@@ -107,8 +114,11 @@ func AddTransientService[T interface{}](spec T, impl any) error {
 // Gets an implementation of a service based on an specification from the container.
 func Inject[T interface{}]() T {
 	c := GetRoids()
-	implType := reflect.TypeOf(new(T)).Elem()
-	return (*(c.services[implType].instance)).(T)
+	specType := reflect.TypeOf(new(T)).Elem()
+
+	// Implementation of service
+	impl := (*(c.services[specType].instance)).(T)
+	return impl
 }
 
 type reverseLookupVisiter struct {
@@ -120,10 +130,12 @@ type reverseLookupVisiter struct {
 // Function to lookup vertexId based on spec
 func (pv *reverseLookupVisiter) Visit(v dag.Vertexer) {
 	id, value := v.Vertex()
-	sType := value.(reflect.Type)
-	if sType == pv.searchType {
+	service := value.(*Service)
+	if service.SpecType == pv.searchType {
 		pv.vertexId = id
 		pv.Service = value.(*Service)
 		return
 	}
 }
+
+var serviceHash *hash.Hash = new(hash.Hash)

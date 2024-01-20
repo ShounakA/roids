@@ -160,7 +160,6 @@ func TestAddLifetimeService_CircularDependency(t *testing.T) {
 	if err == nil {
 		t.Error("Should catch circular dependency here!!")
 	}
-
 	roids.UNSAFE_Clear()
 }
 

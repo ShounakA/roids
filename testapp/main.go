@@ -5,7 +5,7 @@
  */
 package main
 
-import "github.com/ShounakA/roids/needle"
+import "github.com/ShounakA/roids"
 
 type IOmegalulService interface {
 	SayOmegalul()
@@ -96,17 +96,17 @@ func (js *JuiceService) Juice(num uint) {
 
 func main() {
 
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	needle.AddLifetimeService(new(IOmegalulService), NewOmegalul)
-	needle.AddLifetimeService(new(IDepService), NewDepService)
-	needle.AddLifetimeService(new(IJuiceService), NewJuiceService)
-	needle.AddLifetimeService(new(ITestService), NewTestService)
-	needle.Build()
+	roids.AddLifetimeService(new(IOmegalulService), NewOmegalul)
+	roids.AddLifetimeService(new(IDepService), NewDepService)
+	roids.AddLifetimeService(new(IJuiceService), NewJuiceService)
+	roids.AddLifetimeService(new(ITestService), NewTestService)
+	roids.Build()
 
-	testService := needle.Inject[ITestService]()
-	depService := needle.Inject[IDepService]()
-	juiceService := needle.Inject[IJuiceService]()
+	testService := roids.Inject[ITestService]()
+	depService := roids.Inject[IDepService]()
+	juiceService := roids.Inject[IJuiceService]()
 
 	juiceService.Juice(3)
 	testService.Something()

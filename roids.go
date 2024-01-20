@@ -30,10 +30,10 @@ func GetRoids() *needleContainer {
 func (pv *depVisiter) Visit(v dag.Vertexer) {
 	roids := GetRoids()
 	id, value := v.Vertex()
-	sType := value.(reflect.Type)
-	pv.Hist.Push(sType)
+	service := value.(*Service)
+	pv.Hist.Push(service.SpecType)
 	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
-	roids.services[sType].isLeaf = isLeaf
+	roids.services[service.SpecType].isLeaf = isLeaf
 }
 
 // Build the dependency injection IoC container
@@ -60,7 +60,7 @@ func Build() error {
 				service.created = true
 
 			} else {
-				return NewNeedleError("Injector is not a function.", serviceType)
+				return NewInjectorError(serviceType)
 			}
 		} else if service.created {
 			fmt.Println("Could not create service. It is already created.")
