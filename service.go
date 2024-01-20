@@ -5,13 +5,12 @@
 
 // Package containing custom dependency container for dependency injection.
 // There is only ever one container and it can be used globally to access all the dependencies.
-package needle
+package roids
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/ShounakA/roids/errors"
 	"github.com/heimdalr/dag"
 )
 
@@ -39,13 +38,12 @@ func AddLifetimeService[T interface{}](spec T, impl any) error {
 	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
 	if reflect.ValueOf(impl).Kind() != reflect.Func {
-		return errors.NewNeedleError("Must provide a constructor that returns the implementation.", specType)
+		return NewInjectorError(specType)
 	}
 	ftype := reflect.TypeOf(impl)
 	implType := ftype.Out(0)
 	if !implType.Implements(specType) {
-		errMsg := fmt.Sprintf("'%s' must implement '%s' to be added as a service.", implType.Elem().Name(), specType.Name())
-		return errors.NewNeedleError(errMsg, specType)
+		return NewServiceError(specType, implType.Elem())
 	}
 
 	// Add vertex for the service being added
@@ -79,11 +77,11 @@ func AddLifetimeService[T interface{}](spec T, impl any) error {
 		if err != nil {
 			switch e := err.(type) {
 			case dag.EdgeLoopError:
-				return errors.NewNeedleError("Circular dependency detected.", specType)
+				return NewCircularDependencyError(e, specType)
 			case dag.EdgeDuplicateError:
-				return errors.NewNeedleError("Duplicate service and dependency detected.", specType)
+				return NewDuplicateEdgeError(e, thisV, specType)
 			default:
-				return errors.NewNeedleError(e.Error(), specType)
+				return NewUnknownError(e)
 			}
 		}
 	}

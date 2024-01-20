@@ -5,7 +5,7 @@
 
 // Package containing custom dependency container for dependency injection.
 // There is only ever one container and it can be used globally to access all the dependencies.
-package needle
+package roids
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/ShounakA/roids/col"
-	"github.com/ShounakA/roids/errors"
 
 	"github.com/heimdalr/dag"
 )
@@ -61,13 +60,12 @@ func Build() error {
 				service.created = true
 
 			} else {
-				fmt.Println("Instance is not a function")
-				return errors.NewNeedleError("Injector is not a function.", serviceType)
+				return NewNeedleError("Injector is not a function.", serviceType)
 			}
 		} else if service.created {
 			fmt.Println("Could not create service. It is already created.")
 		} else {
-			return errors.NewNeedleError("Unexpected error occured.", serviceType)
+			return NewUnknownError(nil)
 		}
 	}
 	return nil
@@ -140,8 +138,7 @@ func createLeafDep(sType reflect.Type) error {
 		roids.services[sType].created = true
 
 	} else {
-		fmt.Println("Instance is not a function")
-		return errors.NewNeedleError("Injector is not a function", sType)
+		return NewInjectorError(sType)
 	}
 	return nil
 }

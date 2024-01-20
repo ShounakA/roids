@@ -74,5 +74,4 @@ func main() {
 ## Future Enhancements
 
 - Dependency lifetimes
-- Better Errors
 - Internal logging
