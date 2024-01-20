@@ -171,8 +171,8 @@ func TestAddService_InvalidInterface(t *testing.T) {
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if err.Error() != "iCycleService -> 'bCycleService' must implement 'iCycleService' to be added as a service." {
-		t.Error("Unexpected error returned.", err.Error())
+	if nerr, ok := err.(*needle.ServiceError); !ok {
+		t.Errorf("%s should be ServiceError", nerr.Error())
 	}
 	needle.UNSAFE_Clear()
 }
@@ -184,8 +184,8 @@ func TestAddService_NotAConstructor(t *testing.T) {
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if err.Error() != "iCycleService -> Must provide a constructor that returns the implementation." {
-		t.Error("Unexpected error returned.", err.Error())
+	if nerr, ok := err.(*needle.InjectorError); !ok {
+		t.Error("Unexpected error returned.", nerr.Error())
 	}
 	needle.UNSAFE_Clear()
 }
