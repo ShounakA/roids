@@ -1,9 +1,9 @@
-package needle_test
+package roids_test
 
 import (
 	"testing"
 
-	"github.com/ShounakA/roids/needle"
+	"github.com/ShounakA/roids"
 )
 
 type (
@@ -105,111 +105,111 @@ func (obj *bCycleService) WontWorkBeforeMain() {
 	return
 }
 
-func TestGetNeedle(t *testing.T) {
-	roids := needle.GetRoids()
-	secondRoids := needle.GetRoids()
-	if roids != secondRoids {
+func TestGetroids(t *testing.T) {
+	firstRoids := roids.GetRoids()
+	secondRoids := roids.GetRoids()
+	if firstRoids != secondRoids {
 		t.Error("Both roids should be the same instance.")
 	}
 }
 
 func TestAddService(t *testing.T) {
 
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(testInterface), newTestObject)
+	err := roids.AddService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = needle.AddService(new(dependedService), newDependedObject)
+	err = roids.AddService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
 
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 }
 
 func TestAddService_IncorrectOrder(t *testing.T) {
 
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(dependedService), newDependedObject)
+	err := roids.AddService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependency", err.Error())
 	}
-	err = needle.AddService(new(testInterface), newTestObject)
+	err = roids.AddService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Added dependency with first define the service.", err.Error())
 	}
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 
 }
 
 func TestAddService_CircularDependency(t *testing.T) {
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(iCycleService), newCycle)
+	err := roids.AddService(new(iCycleService), newCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = needle.AddService(new(iToCycleService), newToCycle)
+	err = roids.AddService(new(iToCycleService), newToCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = needle.AddService(new(ibCycleService), newBCycle)
+	err = roids.AddService(new(ibCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch circular dependency here!!")
 	}
 
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 }
 
 func TestAddService_InvalidInterface(t *testing.T) {
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(iCycleService), newBCycle)
+	err := roids.AddService(new(iCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if nerr, ok := err.(*needle.ServiceError); !ok {
+	if nerr, ok := err.(*roids.ServiceError); !ok {
 		t.Errorf("%s should be ServiceError", nerr.Error())
 	}
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 }
 
 func TestAddService_NotAConstructor(t *testing.T) {
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(iCycleService), &cycleService{})
+	err := roids.AddService(new(iCycleService), &cycleService{})
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if nerr, ok := err.(*needle.InjectorError); !ok {
+	if nerr, ok := err.(*roids.InjectorError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 }
 
 func TestInject(t *testing.T) {
 
-	_ = needle.GetRoids()
+	_ = roids.GetRoids()
 
-	err := needle.AddService(new(testInterface), newTestObject)
+	err := roids.AddService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = needle.AddService(new(dependedService), newDependedObject)
+	err = roids.AddService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
 
-	needle.Build()
+	roids.Build()
 
-	testService := needle.Inject[testInterface]()
+	testService := roids.Inject[testInterface]()
 	if testService.DoSomethingBob() != "Testing add" {
 		t.Error("Did not inject service correctly.")
 	}
-	needle.UNSAFE_Clear()
+	roids.UNSAFE_Clear()
 }
 
 func TestBuild(t *testing.T) {

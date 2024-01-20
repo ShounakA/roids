@@ -5,7 +5,7 @@
 
 // Package containing custom dependency container for dependency injection.
 // There is only ever one container and it can be used globally to access all the dependencies.
-package needle
+package roids
 
 import (
 	"context"
