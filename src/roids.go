@@ -5,7 +5,7 @@
 
 // Package containing custom dependency container for dependency injection.
 // There is only ever one container and it can be used globally to access all the dependencies.
-package needle
+package roids
 
 import (
 	"context"
@@ -32,15 +32,12 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 	id, value := v.Vertex()
 	sType := value.(reflect.Type)
 	pv.Hist.Push(sType)
-	isLeaf, err := roids.servicesGraph.IsLeaf(id)
-	if err != nil {
-		println("Node with id not found")
-	}
+	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
 	roids.services[sType].isLeaf = isLeaf
 }
 
 // Build the dependency injection IoC container
-func Build() {
+func Build() error {
 	// Instantiate/Get IoC Container
 	roids := GetRoids()
 
@@ -63,12 +60,15 @@ func Build() {
 				service.created = true
 
 			} else {
-				fmt.Println("Instance is not a function")
+				return NewNeedleError("Injector is not a function.", serviceType)
 			}
+		} else if service.created {
+			fmt.Println("Could not create service. It is already created.")
 		} else {
-			fmt.Println("Could not create service.")
+			return NewUnknownError(nil)
 		}
 	}
+	return nil
 }
 
 // Prints all dependencies in the container
@@ -125,7 +125,7 @@ func getArgsForFunction(service *Service) []reflect.Value {
 // Creates an instance of a leaf service.
 // These services should not have parameters in there injector functions.
 // Meaning they can be created easily without problem.
-func createLeafDep(sType reflect.Type) {
+func createLeafDep(sType reflect.Type) error {
 	roids := GetRoids()
 	injected := roids.services[sType].Injector
 	injectedVal := reflect.ValueOf(injected)
@@ -138,8 +138,9 @@ func createLeafDep(sType reflect.Type) {
 		roids.services[sType].created = true
 
 	} else {
-		fmt.Println("Instance is not a function")
+		return NewInjectorError(sType)
 	}
+	return nil
 }
 
 // needleContainer is a struct that holds all the dependencies for the application.

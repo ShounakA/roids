@@ -5,11 +5,9 @@
 
 // Package containing custom dependency container for dependency injection.
 // There is only ever one container and it can be used globally to access all the dependencies.
-package needle
+package roids
 
 import (
-	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/heimdalr/dag"
@@ -33,13 +31,12 @@ func AddService[T interface{}](spec T, impl any) error {
 	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
 	if reflect.ValueOf(impl).Kind() != reflect.Func {
-		return errors.New("Must provide a constructor that returns the implementation.")
+		return NewInjectorError(specType)
 	}
 	ftype := reflect.TypeOf(impl)
 	implType := ftype.Out(0)
 	if !implType.Implements(specType) {
-		errMsg := fmt.Sprintf("'%s' must implement '%s' to be added as a service.", implType.Elem().Name(), specType.Name())
-		return errors.New(errMsg)
+		return NewServiceError(specType, implType.Elem())
 	}
 
 	// Add vertex for the service being added
@@ -64,7 +61,14 @@ func AddService[T interface{}](spec T, impl any) error {
 		// Add edge
 		err = container.servicesGraph.AddEdge(thisV, depV)
 		if err != nil {
-			return err
+			switch e := err.(type) {
+			case dag.EdgeLoopError:
+				return NewCircularDependencyError(e, specType)
+			case dag.EdgeDuplicateError:
+				return NewDuplicateEdgeError(e, thisV, specType)
+			default:
+				return NewUnknownError(e)
+			}
 		}
 	}
 	return nil
