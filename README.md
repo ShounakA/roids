@@ -2,16 +2,17 @@
 	<h1>
 		Roids: Dependency Injection
 	</h1>
+	<p>
+		[![Roids Main Build](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
 
-	[![Roids Main Build](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
+		Roids is a simple dependency injection container that you can use to share and pass services into your application.
 
-	Roids is a simple dependency injection container that you can use to share and pass services into your application.
-
-	[Features](#features) | 
-	[Getting Started](#get-roids) | 
-	[Usage](#usage) | 
-	[Building](#building-roids) | 
-	[Enhancements](#enhancements)
+		[Features](#features) | 
+		[Getting Started](#get-roids) | 
+		[Usage](#usage) | 
+		[Building](#building-roids) | 
+		[Enhancements](#enhancements)
+	</p>
 </div>
 
 ## Features
