@@ -98,10 +98,10 @@ func main() {
 
 	_ = roids.GetRoids()
 
-	roids.AddLifetimeService(new(IOmegalulService), NewOmegalul)
-	roids.AddLifetimeService(new(IDepService), NewDepService)
-	roids.AddLifetimeService(new(IJuiceService), NewJuiceService)
-	roids.AddLifetimeService(new(ITestService), NewTestService)
+	roids.AddStaticService(new(IOmegalulService), NewOmegalul)
+	roids.AddStaticService(new(IDepService), NewDepService)
+	roids.AddStaticService(new(IJuiceService), NewJuiceService)
+	roids.AddStaticService(new(ITestService), NewTestService)
 	roids.Build()
 
 	testService := roids.Inject[ITestService]()

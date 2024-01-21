@@ -19,9 +19,9 @@ import (
 )
 
 // Thread-safe function to get the global instance of the dependency container.
-func GetRoids() *needleContainer {
+func GetRoids() *roidsContainer {
 	once.Do(func() {
-		instance = newNeedle()
+		instance = newRoidsContainer()
 	})
 	return instance
 }
@@ -33,12 +33,11 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 	service := value.(*Service)
 	pv.Hist.Push(service.SpecType)
 	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
-	roids.services[service.SpecType].isLeaf = isLeaf
+	service.isLeaf = isLeaf
 }
 
-// Build the dependency injection IoC container
+// Builds all static services in container.
 func Build() error {
-	// Instantiate/Get IoC Container
 	roids := GetRoids()
 
 	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
@@ -46,29 +45,51 @@ func Build() error {
 
 	for v.Hist.GetSize() > 0 {
 		serviceType := *v.Hist.Pop()
-		service := roids.services[serviceType]
-		if service.isLeaf && !service.created {
-			createLeafDep(serviceType)
-		} else if !service.isLeaf && !service.created {
-			injected := service.Injector
-			injectedVal := reflect.ValueOf(injected)
-			if injectedVal.Kind() == reflect.Func {
-				args := getArgsForFunction(service)
-				results := injectedVal.Call(args)
-				instance := results[0].Interface()
-				service.instance = &instance
-				service.created = true
-
+		service := GetServiceByType(roids.servicesGraph, serviceType)
+		if service.lifetimeType == StaticService {
+			if service.isLeaf && !service.created {
+				setStaticLeafDep(service)
+			} else if !service.isLeaf && !service.created {
+				setStaticBranchDep(service)
 			} else {
-				return NewInjectorError(serviceType)
+				return NewUnknownError(nil)
 			}
-		} else if service.created {
-			fmt.Println("Could not create service. It is already created.")
-		} else {
-			return NewUnknownError(nil)
 		}
 	}
 	return nil
+}
+
+func BuildTransientDep(service *Service) *any {
+	roids := GetRoids()
+	chVertex, _, _ := roids.servicesGraph.DescendantsWalker(service.Id)
+	hist := col.NewStack[string](&service.Id)
+	select {
+	case vertexId := <-chVertex:
+		if vertexId != "" {
+			hist.Push(vertexId)
+		}
+	}
+
+	deps := make(map[reflect.Type]*any)
+
+	for hist.GetSize() > 0 {
+		id := *hist.Pop()
+		vertex, _ := roids.servicesGraph.GetVertex(id)
+		service := vertex.(*Service)
+		if service.lifetimeType == StaticService {
+			deps[service.SpecType] = service.instance
+		} else if service.lifetimeType == TransientService {
+			if service.isLeaf {
+				instance := createTransientLeafDep(service)
+				deps[service.SpecType] = instance
+			} else {
+				deps[service.SpecType] = createTransientBranchDep(service, deps)
+			}
+		}
+	}
+
+	transientDep := deps[service.SpecType]
+	return transientDep
 }
 
 // Prints all dependencies in the container
@@ -88,11 +109,11 @@ func UNSAFE_Clear() {
 }
 
 /**
-Private stuff
-*/
+ * Private stuff
+ */
 
 // Application wide instance of the dependency container.
-var instance *needleContainer
+var instance *roidsContainer
 
 // Atomic boolean to ensure that the container is only created once.
 var once sync.Once
@@ -116,36 +137,71 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	// Get the type of each argument
 	for i := 0; i < injectedType.NumIn(); i++ {
 		serviceType := injectedType.In(i)
-		instanceVal := reflect.ValueOf(*(roids.services[serviceType].instance))
-		argValues[i] = instanceVal
+		service := GetServiceByType(roids.servicesGraph, serviceType)
+		if service.lifetimeType == StaticService {
+			instanceVal := reflect.ValueOf(*(service.instance))
+			argValues[i] = instanceVal
+		} else {
+			dep := BuildTransientDep(service)
+			instanceVal := reflect.ValueOf(*dep)
+			argValues[i] = instanceVal
+		}
 	}
 	return argValues
+}
+
+func createTransientLeafDep(service *Service) *any {
+	injected := service.Injector
+	injectedVal := reflect.ValueOf(injected)
+	results := injectedVal.Call(nil)
+	// Handle results if necessary
+	leafDep := results[0].Interface()
+	return &leafDep
+}
+
+func createTransientBranchDep(service *Service, deps map[reflect.Type]*any) *any {
+	injectedVal := reflect.ValueOf(service.Injector)
+	injectedType := injectedVal.Type()
+
+	argValues := make([]reflect.Value, injectedType.NumIn())
+	for i := 0; i < injectedType.NumIn(); i++ {
+		serviceType := injectedType.In(i)
+		dep := deps[serviceType]
+		instanceVal := reflect.ValueOf(*dep)
+		argValues[i] = instanceVal
+	}
+	results := injectedVal.Call(argValues)
+	dep := results[0].Interface()
+	return &dep
 }
 
 // Creates an instance of a leaf service.
 // These services should not have parameters in there injector functions.
 // Meaning they can be created easily without problem.
-func createLeafDep(sType reflect.Type) error {
-	roids := GetRoids()
-	injected := roids.services[sType].Injector
+func setStaticLeafDep(service *Service) {
+	injected := service.Injector
 	injectedVal := reflect.ValueOf(injected)
-	if injectedVal.Kind() == reflect.Func {
-		// If the instance is a function, call it
-		results := injectedVal.Call(nil)
-		// Handle results if necessary
-		instance := results[0].Interface()
-		roids.services[sType].instance = &instance
-		roids.services[sType].created = true
-
-	} else {
-		return NewInjectorError(sType)
-	}
-	return nil
+	results := injectedVal.Call(nil)
+	// Handle results if necessary
+	instance := results[0].Interface()
+	service.instance = &instance
+	service.created = true
 }
 
-// needleContainer is a struct that holds all the dependencies for the application.
+func setStaticBranchDep(service *Service) {
+	injected := service.Injector
+	injectedVal := reflect.ValueOf(injected)
+	args := getArgsForFunction(service)
+	results := injectedVal.Call(args)
+	instance := results[0].Interface()
+	service.instance = &instance
+	service.created = true
+	return
+}
+
+// roidsContainer is a struct that holds all the dependencies for the application.
 // It is recommended to use the `GetNeedle` function to get the global instance.
-type needleContainer struct {
+type roidsContainer struct {
 	services      map[reflect.Type]*Service
 	servicesGraph *dag.DAG
 	context       context.Context
@@ -153,8 +209,8 @@ type needleContainer struct {
 
 // Creates a new instance of the dependency container.
 // This function should not be used directly. Use `GetNeedle` instead.
-func newNeedle() *needleContainer {
-	return &needleContainer{
+func newRoidsContainer() *roidsContainer {
+	return &roidsContainer{
 		services:      make(map[reflect.Type]*Service),
 		servicesGraph: dag.NewDAG(),
 	}
