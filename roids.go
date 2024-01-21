@@ -152,7 +152,6 @@ func createTransientLeafDep(service *Service) *any {
 	injector := service.Injector
 	injectorVal := reflect.ValueOf(injector)
 	results := injectorVal.Call(nil)
-	// Handle results if necessary
 	leafDep := results[0].Interface()
 	return &leafDep
 }
@@ -178,11 +177,7 @@ func createTransientBranchDep(service *Service, deps map[reflect.Type]*any) *any
 // These services should not have parameters in there injector functions.
 // Meaning they can be created by calling the injector.
 func setStaticLeafDep(service *Service) {
-	injector := service.Injector
-	injectorVal := reflect.ValueOf(injector)
-	results := injectorVal.Call(nil)
-	instance := results[0].Interface()
-	service.instance = &instance
+	service.instance = createTransientLeafDep(service)
 	service.created = true
 }
 
