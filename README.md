@@ -13,6 +13,7 @@ go get github.com/ShounakA/roids
 
 - Simple setup
 - Constructor-like dependency injection
+- Dependency lifetimes: Static and Transient
 - Http-Framework agnostic
 
 ## Usage
@@ -51,10 +52,10 @@ func main() {
 	_ = needle.GetRoids()
 
     // Add your services
-	needle.AddService(new(IOmegalulService), NewOmegalul)
-	needle.AddService(new(IDepService), NewDepService)
-	needle.AddService(new(IJuiceService), NewJuiceService)
-	needle.AddService(new(ITestService), NewTestService)
+	needle.AddTransientService(new(IOmegalulService), NewOmegalul)
+	needle.AddTransientService(new(IDepService), NewDepService)
+	needle.AddStaticService(new(IJuiceService), NewJuiceService)
+	needle.AddStaticService(new(ITestService), NewTestService)
 	
 	// Build your needle, to instantiate your services
 	needle.Build()
@@ -73,5 +74,5 @@ func main() {
 ```
 ## Future Enhancements
 
-- Dependency lifetimes
 - Internal logging
+- Startup/Cleanup actions for services
