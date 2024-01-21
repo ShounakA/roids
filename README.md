@@ -1,19 +1,32 @@
+<!-- markdownlint-configure-file {
+  "MD013": {
+    "code_blocks": false,
+    "tables": false
+  },
+  "MD033": false,
+  "MD041": false
+} -->
+
 <div align="center">
-	<h1>
-		Roids: Dependency Injection
-	</h1>
-	<p>
-		[![Roids Main Build](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
 
-		Roids is a simple dependency injection container that you can use to share and pass services into your application.
+<hr />
 
-		[Features](#features) | 
-		[Getting Started](#get-roids) | 
-		[Usage](#usage) | 
-		[Building](#building-roids) | 
-		[Enhancements](#enhancements)
-	</p>
+# Roids: Dependency Injection
+
+[Features](#features) •
+[Getting Started](#get-roids) •
+[Usage](#usage) •
+[Building](#building-roids) •
+[Enhancements](#enhancements)
+
+<br/>
+Roids is a simple dependency injection container that you can use to share and pass services into your application.
 </div>
+
+<br/>
+
+[![Roids Main Build](https://github.com/ShounakA/roids/actions/workflows/build-test.yml/badge.svg)](https://github.com/ShounakA/roids/actions/workflows/build-test.yml)
+
 
 ## Features
 
