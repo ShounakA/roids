@@ -15,19 +15,30 @@ import (
 	"github.com/heimdalr/dag"
 )
 
-const StaticService string = "Static"
-const TransientService string = "Transient"
+// Constant to ID Static lifetimes
+const StaticLifetime string = "Static"
+
+// Constant to ID Transient lifetimes
+const TransientLifetime string = "Transient"
 
 // Struct representing an injectable service. (aka Provider, Assembler, Service, or Injector)
 type Service struct {
-	Injector     any
-	Id           string
-	SpecType     reflect.Type
+	// Injector is a function that returns a pointer to a concrete implementation
+	Injector any
+	// ID representing and identifying the service
+	Id string
+	// The service specification or interface type
+	SpecType reflect.Type
+	// The lifetime of the service. Can either be "static" or "transient"
 	lifetimeType string
-	created      bool
-	implType     reflect.Type
-	instance     *any
-	isLeaf       bool
+	// True if the service has already been created once. False otherwise.
+	created bool
+	// The service concrete implementation type
+	implType reflect.Type
+	// The instantiated service. nil for service with "transient" lifetime
+	instance *any
+	// True the dependency does not require another to be instantiated.
+	isLeaf bool
 }
 
 // String function for *Service type.
@@ -43,12 +54,12 @@ func (s *Service) ID() string {
 // Adds a static service to the container. A static service is only created once and lives for the life of the application.
 // Uses the specification (interface or struct) to inject an implementation into the IoC container
 func AddStaticService[T interface{}](spec T, impl any) error {
-	return addService(spec, impl, StaticService)
+	return addService(spec, impl, StaticLifetime)
 }
 
 // Adds a transient service to the container. A transient service is newly instantiated for each use.
 func AddTransientService[T interface{}](spec T, impl any) error {
-	return addService(spec, impl, TransientService)
+	return addService(spec, impl, TransientLifetime)
 }
 
 // Gets an implementation of a service based on an specification from the container.
@@ -59,25 +70,26 @@ func Inject[T interface{}]() T {
 	specType := reflect.TypeOf(new(T)).Elem()
 
 	// Implementation of service
-	service := GetServiceByType(c.servicesGraph, specType)
+	service := getServiceByType(c.servicesGraph, specType)
 	var impl T
-	if service.lifetimeType == StaticService {
+	if service.lifetimeType == StaticLifetime {
 		impl = (*(service.instance)).(T)
 		return impl
 	}
-	dep := BuildTransientDep(service)
+	dep := buildTransientDep(service)
 	impl = (*dep).(T)
 	return impl
 }
 
 // Function to search the dependency graph for the Service definition by the service specification type.
-// returns a pointer to the service definition
-func GetServiceByType(graph *dag.DAG, specType reflect.Type) *Service {
+// returns a pointer to the service definition, nil if service was not found
+func getServiceByType(graph *dag.DAG, specType reflect.Type) *Service {
 	lookup := &reverseLookupVisiter{searchType: specType, Service: nil}
 	graph.BFSWalk(lookup)
 	return lookup.Service
 }
 
+// Struct to perform a lookup from the search type.
 type reverseLookupVisiter struct {
 	vertexId   string
 	Service    *Service
@@ -101,7 +113,7 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	// Get Container
 	container := GetRoids()
 	specType := reflect.TypeOf(spec).Elem()
-	if lifeTime != StaticService && lifeTime != TransientService {
+	if lifeTime != StaticLifetime && lifeTime != TransientLifetime {
 		return NewInvalidLifetimeError(nil, specType)
 	}
 
@@ -121,7 +133,7 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	if err != nil {
 		// It means we added a vertex for this service before via a constructor.
 		// SO we must lookup the id based on the service type.
-		service := GetServiceByType(container.servicesGraph, specType)
+		service := getServiceByType(container.servicesGraph, specType)
 		service.implType = implType
 		service.Injector = impl
 		service.lifetimeType = lifeTime
@@ -134,7 +146,7 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	for i := 0; i < ftype.NumIn(); i++ {
 		field := ftype.In(i)
 		// Add vertex for dependency
-		depService := GetServiceByType(container.servicesGraph, field)
+		depService := getServiceByType(container.servicesGraph, field)
 		if depService == nil {
 			// Ignore the error as service = nil meaning we should not get an error adding vertex.
 			depV, _ := container.servicesGraph.AddVertex(&Service{SpecType: field})

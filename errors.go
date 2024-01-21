@@ -89,7 +89,7 @@ func NewInvalidLifetimeError(err error, spec reflect.Type) *InvalidLifetimeError
 }
 
 func (e *InvalidLifetimeError) Error() string {
-	return fmt.Sprintf("[%s] Invalid lifetime. Valid  lifetimes are: %s and %s", e.SpecType, StaticService, TransientService)
+	return fmt.Sprintf("[%s] Invalid lifetime. Valid  lifetimes are: %s and %s", e.SpecType, StaticLifetime, TransientLifetime)
 }
 
 func NewUnknownError(err error) *UnknownError {

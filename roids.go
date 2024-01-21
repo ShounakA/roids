@@ -8,7 +8,6 @@
 package roids
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -26,16 +25,6 @@ func GetRoids() *roidsContainer {
 	return instance
 }
 
-// Method to traverse the entire dependency graph
-func (pv *depVisiter) Visit(v dag.Vertexer) {
-	roids := GetRoids()
-	id, value := v.Vertex()
-	service := value.(*Service)
-	pv.Hist.Push(service.SpecType)
-	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
-	service.isLeaf = isLeaf
-}
-
 // Builds all static services in container.
 func Build() error {
 	roids := GetRoids()
@@ -45,8 +34,8 @@ func Build() error {
 
 	for v.Hist.GetSize() > 0 {
 		serviceType := *v.Hist.Pop()
-		service := GetServiceByType(roids.servicesGraph, serviceType)
-		if service.lifetimeType == StaticService {
+		service := getServiceByType(roids.servicesGraph, serviceType)
+		if service.lifetimeType == StaticLifetime {
 			if service.isLeaf && !service.created {
 				setStaticLeafDep(service)
 			} else if !service.isLeaf && !service.created {
@@ -59,7 +48,48 @@ func Build() error {
 	return nil
 }
 
-func BuildTransientDep(service *Service) *any {
+// Prints all dependencies in the container
+func PrintDependencyGraph() {
+	roids := GetRoids()
+	fmt.Println(roids.servicesGraph.String())
+}
+
+// Clears the container of all services
+// SUPER UNSAFE. Only used during testing. Dont use while running an application.
+func UNSAFE_Clear() {
+	roids := GetRoids()
+	roids.servicesGraph = dag.NewDAG()
+}
+
+/**
+ * Non-exported stuff
+ */
+
+// Application wide instance of the dependency container.
+var instance *roidsContainer
+
+// Atomic boolean to ensure that the container is only created once.
+var once sync.Once
+
+// Dependency visitor. It keeps track of the nodes visited into a stack,
+// so that we can instantiate leaf deps by popping them out.
+type depVisiter struct {
+	// History of the dependent services visited.
+	Hist col.IStack[reflect.Type]
+}
+
+// Method to traverse the entire dependency graph
+func (pv *depVisiter) Visit(v dag.Vertexer) {
+	roids := GetRoids()
+	id, value := v.Vertex()
+	service := value.(*Service)
+	pv.Hist.Push(service.SpecType)
+	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
+	service.isLeaf = isLeaf
+}
+
+// Build a new instance of the specified service.
+func buildTransientDep(service *Service) *any {
 	roids := GetRoids()
 	chVertex, _, _ := roids.servicesGraph.DescendantsWalker(service.Id)
 	hist := col.NewStack[string](&service.Id)
@@ -76,9 +106,9 @@ func BuildTransientDep(service *Service) *any {
 		id := *hist.Pop()
 		vertex, _ := roids.servicesGraph.GetVertex(id)
 		service := vertex.(*Service)
-		if service.lifetimeType == StaticService {
+		if service.lifetimeType == StaticLifetime {
 			deps[service.SpecType] = service.instance
-		} else if service.lifetimeType == TransientService {
+		} else if service.lifetimeType == TransientLifetime {
 			if service.isLeaf {
 				instance := createTransientLeafDep(service)
 				deps[service.SpecType] = instance
@@ -90,39 +120,6 @@ func BuildTransientDep(service *Service) *any {
 
 	transientDep := deps[service.SpecType]
 	return transientDep
-}
-
-// Prints all dependencies in the container
-func PrintDependencyGraph() {
-	roids := GetRoids()
-	fmt.Println(roids.servicesGraph.String())
-}
-
-// Clears the container of all services
-// SUPER UNSAFE. Only used during testing. Dont use while running an application.
-func UNSAFE_Clear() {
-	roids := GetRoids()
-	for t := range roids.services {
-		delete(roids.services, t)
-	}
-	roids.servicesGraph = dag.NewDAG()
-}
-
-/**
- * Private stuff
- */
-
-// Application wide instance of the dependency container.
-var instance *roidsContainer
-
-// Atomic boolean to ensure that the container is only created once.
-var once sync.Once
-
-// Dependency visitor. It keeps track of the nodes visited into a stack,
-// so that we can instantiate leaf deps by popping them out.
-type depVisiter struct {
-	// History of the dependent services visited.
-	Hist col.IStack[reflect.Type]
 }
 
 // Get all deps before using injector.
@@ -137,12 +134,12 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	// Get the type of each argument
 	for i := 0; i < injectedType.NumIn(); i++ {
 		serviceType := injectedType.In(i)
-		service := GetServiceByType(roids.servicesGraph, serviceType)
-		if service.lifetimeType == StaticService {
+		service := getServiceByType(roids.servicesGraph, serviceType)
+		if service.lifetimeType == StaticLifetime {
 			instanceVal := reflect.ValueOf(*(service.instance))
 			argValues[i] = instanceVal
 		} else {
-			dep := BuildTransientDep(service)
+			dep := buildTransientDep(service)
 			instanceVal := reflect.ValueOf(*dep)
 			argValues[i] = instanceVal
 		}
@@ -150,49 +147,53 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	return argValues
 }
 
+// Creates a new leaf instance of the specified service
 func createTransientLeafDep(service *Service) *any {
-	injected := service.Injector
-	injectedVal := reflect.ValueOf(injected)
-	results := injectedVal.Call(nil)
+	injector := service.Injector
+	injectorVal := reflect.ValueOf(injector)
+	results := injectorVal.Call(nil)
 	// Handle results if necessary
 	leafDep := results[0].Interface()
 	return &leafDep
 }
 
+// Creates a new branch or root instance of the specified service
 func createTransientBranchDep(service *Service, deps map[reflect.Type]*any) *any {
-	injectedVal := reflect.ValueOf(service.Injector)
-	injectedType := injectedVal.Type()
+	injectorVal := reflect.ValueOf(service.Injector)
+	injectorType := injectorVal.Type()
 
-	argValues := make([]reflect.Value, injectedType.NumIn())
-	for i := 0; i < injectedType.NumIn(); i++ {
-		serviceType := injectedType.In(i)
+	argValues := make([]reflect.Value, injectorType.NumIn())
+	for i := 0; i < injectorType.NumIn(); i++ {
+		serviceType := injectorType.In(i)
 		dep := deps[serviceType]
 		instanceVal := reflect.ValueOf(*dep)
 		argValues[i] = instanceVal
 	}
-	results := injectedVal.Call(argValues)
+	results := injectorVal.Call(argValues)
 	dep := results[0].Interface()
 	return &dep
 }
 
-// Creates an instance of a leaf service.
+// Sets a static instance of a leaf service.
 // These services should not have parameters in there injector functions.
-// Meaning they can be created easily without problem.
+// Meaning they can be created by calling the injector.
 func setStaticLeafDep(service *Service) {
-	injected := service.Injector
-	injectedVal := reflect.ValueOf(injected)
-	results := injectedVal.Call(nil)
-	// Handle results if necessary
+	injector := service.Injector
+	injectorVal := reflect.ValueOf(injector)
+	results := injectorVal.Call(nil)
 	instance := results[0].Interface()
 	service.instance = &instance
 	service.created = true
 }
 
+// Sets a static instance of a branch or root dependency.
+// Static services can depend on Transient services,
+// so we may need to create build one
 func setStaticBranchDep(service *Service) {
-	injected := service.Injector
-	injectedVal := reflect.ValueOf(injected)
+	injector := service.Injector
+	injectorVal := reflect.ValueOf(injector)
 	args := getArgsForFunction(service)
-	results := injectedVal.Call(args)
+	results := injectorVal.Call(args)
 	instance := results[0].Interface()
 	service.instance = &instance
 	service.created = true
@@ -202,16 +203,13 @@ func setStaticBranchDep(service *Service) {
 // roidsContainer is a struct that holds all the dependencies for the application.
 // It is recommended to use the `GetNeedle` function to get the global instance.
 type roidsContainer struct {
-	services      map[reflect.Type]*Service
 	servicesGraph *dag.DAG
-	context       context.Context
 }
 
 // Creates a new instance of the dependency container.
 // This function should not be used directly. Use `GetNeedle` instead.
 func newRoidsContainer() *roidsContainer {
 	return &roidsContainer{
-		services:      make(map[reflect.Type]*Service),
 		servicesGraph: dag.NewDAG(),
 	}
 }
