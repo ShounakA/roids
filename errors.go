@@ -1,7 +1,6 @@
 package roids
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -25,6 +24,11 @@ type (
 	DuplicateEdgeError struct {
 		err      error
 		VertexId string
+		SpecType reflect.Type
+	}
+
+	InvalidLifetimeError struct {
+		err      error
 		SpecType reflect.Type
 	}
 
@@ -77,6 +81,17 @@ func (e *DuplicateEdgeError) Error() string {
 	return fmt.Sprintf("[%s] Duplicate service and dependency detected. -> %s", e.SpecType, e.err.Error())
 }
 
+func NewInvalidLifetimeError(err error, spec reflect.Type) *InvalidLifetimeError {
+	return &InvalidLifetimeError{
+		err:      err,
+		SpecType: spec,
+	}
+}
+
+func (e *InvalidLifetimeError) Error() string {
+	return fmt.Sprintf("[%s] Invalid lifetime. Valid  lifetimes are: %s and %s", e.SpecType, StaticLifetime, TransientLifetime)
+}
+
 func NewUnknownError(err error) *UnknownError {
 	return &UnknownError{
 		err: err,
@@ -85,9 +100,4 @@ func NewUnknownError(err error) *UnknownError {
 
 func (e *UnknownError) Error() string {
 	return fmt.Sprintf("Unknown error occurred. -> %s", e.err.Error())
-}
-
-func NewNeedleError(message string, sType reflect.Type) error {
-	msg := fmt.Sprintf("%s -> %s", sType.Name(), message)
-	return errors.New(msg)
 }

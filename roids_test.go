@@ -105,7 +105,7 @@ func (obj *bCycleService) WontWorkBeforeMain() {
 	return
 }
 
-func TestGetroids(t *testing.T) {
+func TestGetRoids(t *testing.T) {
 	firstRoids := roids.GetRoids()
 	secondRoids := roids.GetRoids()
 	if firstRoids != secondRoids {
@@ -113,15 +113,15 @@ func TestGetroids(t *testing.T) {
 	}
 }
 
-func TestAddService(t *testing.T) {
+func TestAddStaticService(t *testing.T) {
 
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(testInterface), newTestObject)
+	err := roids.AddStaticService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = roids.AddService(new(dependedService), newDependedObject)
+	err = roids.AddStaticService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
@@ -129,15 +129,15 @@ func TestAddService(t *testing.T) {
 	roids.UNSAFE_Clear()
 }
 
-func TestAddService_IncorrectOrder(t *testing.T) {
+func TestAddStaticService_IncorrectOrder(t *testing.T) {
 
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(dependedService), newDependedObject)
+	err := roids.AddStaticService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependency", err.Error())
 	}
-	err = roids.AddService(new(testInterface), newTestObject)
+	err = roids.AddStaticService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Added dependency with first define the service.", err.Error())
 	}
@@ -145,29 +145,28 @@ func TestAddService_IncorrectOrder(t *testing.T) {
 
 }
 
-func TestAddService_CircularDependency(t *testing.T) {
+func TestAddStaticService_CircularDependency(t *testing.T) {
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(iCycleService), newCycle)
+	err := roids.AddStaticService(new(iCycleService), newCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = roids.AddService(new(iToCycleService), newToCycle)
+	err = roids.AddStaticService(new(iToCycleService), newToCycle)
 	if err != nil {
 		t.Error("Should be able to add simple out of order dependencies.", err.Error())
 	}
-	err = roids.AddService(new(ibCycleService), newBCycle)
+	err = roids.AddStaticService(new(ibCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch circular dependency here!!")
 	}
-
 	roids.UNSAFE_Clear()
 }
 
-func TestAddService_InvalidInterface(t *testing.T) {
+func TestAddStaticService_InvalidInterface(t *testing.T) {
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(iCycleService), newBCycle)
+	err := roids.AddStaticService(new(iCycleService), newBCycle)
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
@@ -177,10 +176,10 @@ func TestAddService_InvalidInterface(t *testing.T) {
 	roids.UNSAFE_Clear()
 }
 
-func TestAddService_NotAConstructor(t *testing.T) {
+func TestAddStaticService_NotAConstructor(t *testing.T) {
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(iCycleService), &cycleService{})
+	err := roids.AddStaticService(new(iCycleService), &cycleService{})
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
@@ -190,15 +189,15 @@ func TestAddService_NotAConstructor(t *testing.T) {
 	roids.UNSAFE_Clear()
 }
 
-func TestInject(t *testing.T) {
+func TestInject_Transient_Branch(t *testing.T) {
 
 	_ = roids.GetRoids()
 
-	err := roids.AddService(new(testInterface), newTestObject)
+	err := roids.AddTransientService(new(testInterface), newTestObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
-	err = roids.AddService(new(dependedService), newDependedObject)
+	err = roids.AddStaticService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
@@ -209,12 +208,88 @@ func TestInject(t *testing.T) {
 	if testService.DoSomethingBob() != "Testing add" {
 		t.Error("Did not inject service correctly.")
 	}
+	testService2 := roids.Inject[testInterface]()
+	if testService == testService2 {
+		t.Error("No transient :(")
+	}
+
 	roids.UNSAFE_Clear()
 }
 
-func TestBuild(t *testing.T) {
-	var _ iCycleService = &cycleService{} // This will fail if cycleService does not implement iCycleService
-	// var _f iToCycleService = &toCycleService{}
-	// var _d ibCycleService = &bCycleService{}
+func TestInject_Transient_Leaf(t *testing.T) {
 
+	_ = roids.GetRoids()
+
+	err := roids.AddStaticService(new(testInterface), newTestObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = roids.AddTransientService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	roids.Build()
+
+	testService := roids.Inject[testInterface]()
+	if testService.DoSomethingBob() != "Testing add" {
+		t.Error("Did not inject service correctly.")
+	}
+	testService2 := roids.Inject[testInterface]()
+	if testService != testService2 {
+		t.Error("Services should be the same, otherwise its not static.")
+	}
+	depService := roids.Inject[dependedService]()
+	if depService.PlanSomething() != "Drive" {
+		t.Error("Did not inject correctly.")
+	}
+	depService2 := roids.Inject[dependedService]()
+	if depService == depService2 {
+		t.Error("Services should not be the same, otherwise they are not transient.")
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestInject_Static(t *testing.T) {
+
+	_ = roids.GetRoids()
+
+	err := roids.AddStaticService(new(testInterface), newTestObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = roids.AddStaticService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	roids.Build()
+
+	testService := roids.Inject[testInterface]()
+	if testService.DoSomethingBob() != "Testing add" {
+		t.Error("Did not inject service correctly.")
+	}
+	testService2 := roids.Inject[testInterface]()
+	if testService != testService2 {
+		t.Error("Services should be the same, otherwise its not static.")
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestAddTransientService(t *testing.T) {
+
+	_ = roids.GetRoids()
+
+	err := roids.AddTransientService(new(testInterface), newTestObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = roids.AddTransientService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	roids.UNSAFE_Clear()
 }
