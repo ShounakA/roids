@@ -8,11 +8,8 @@
 package roids
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/ShounakA/roids/col"
 
 	"github.com/heimdalr/dag"
 )
@@ -20,7 +17,7 @@ import (
 // Thread-safe function to get the global instance of the dependency container.
 func GetRoids() *roidsContainer {
 	once.Do(func() {
-		instance = newRoidsContainer()
+		instance = newRoidsContainer(nil)
 	})
 	return instance
 }
@@ -29,12 +26,11 @@ func GetRoids() *roidsContainer {
 func Build() error {
 	roids := GetRoids()
 
-	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
-	roids.servicesGraph.BFSWalk(&v)
+	order := roids.servicesGraph.GetInstantiationOrder()
 
-	for v.Hist.GetSize() > 0 {
-		serviceType := *v.Hist.Pop()
-		service := getServiceByType(roids.servicesGraph, serviceType)
+	for order.GetSize() > 0 {
+		serviceType := *order.Pop()
+		service := roids.servicesGraph.GetServiceByType(serviceType)
 		if service.lifetimeType == StaticLifetime {
 			if service.isLeaf && !service.created {
 				setStaticLeafDep(service)
@@ -51,14 +47,14 @@ func Build() error {
 // Prints all dependencies in the container
 func PrintDependencyGraph() {
 	roids := GetRoids()
-	fmt.Println(roids.servicesGraph.String())
+	roids.servicesGraph.ShowGraph()
 }
 
 // Clears the container of all services
 // SUPER UNSAFE. Only used during testing. Dont use while running an application.
 func UNSAFE_Clear() {
 	roids := GetRoids()
-	roids.servicesGraph = dag.NewDAG()
+	roids.servicesGraph.ClearGraph()
 }
 
 /**
@@ -71,41 +67,15 @@ var instance *roidsContainer
 // Atomic boolean to ensure that the container is only created once.
 var once sync.Once
 
-// Dependency visitor. It keeps track of the nodes visited into a stack,
-// so that we can instantiate leaf deps by popping them out.
-type depVisiter struct {
-	// History of the dependent services visited.
-	Hist col.IStack[reflect.Type]
-}
-
-// Method to traverse the entire dependency graph
-func (pv *depVisiter) Visit(v dag.Vertexer) {
-	roids := GetRoids()
-	id, value := v.Vertex()
-	service := value.(*Service)
-	pv.Hist.Push(service.SpecType)
-	isLeaf, _ := roids.servicesGraph.IsLeaf(id)
-	service.isLeaf = isLeaf
-}
-
 // Build a new instance of the specified service.
 func buildTransientDep(service *Service) *any {
 	roids := GetRoids()
-	chVertex, _, _ := roids.servicesGraph.DescendantsWalker(service.Id)
-	hist := col.NewStack[string](&service.Id)
-	select {
-	case vertexId := <-chVertex:
-		if vertexId != "" {
-			hist.Push(vertexId)
-		}
-	}
-
+	hist := roids.servicesGraph.GetServiceOrderById(service.Id)
 	deps := make(map[reflect.Type]*any)
 
 	for hist.GetSize() > 0 {
 		id := *hist.Pop()
-		vertex, _ := roids.servicesGraph.GetVertex(id)
-		service := vertex.(*Service)
+		service, _ := roids.servicesGraph.GetVertex(id)
 		if service.lifetimeType == StaticLifetime {
 			deps[service.SpecType] = service.instance
 		} else if service.lifetimeType == TransientLifetime {
@@ -134,7 +104,7 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	// Get the type of each argument
 	for i := 0; i < injectedType.NumIn(); i++ {
 		serviceType := injectedType.In(i)
-		service := getServiceByType(roids.servicesGraph, serviceType)
+		service := roids.servicesGraph.GetServiceByType(serviceType)
 		if service.lifetimeType == StaticLifetime {
 			instanceVal := reflect.ValueOf(*(service.instance))
 			argValues[i] = instanceVal
@@ -198,13 +168,20 @@ func setStaticBranchDep(service *Service) {
 // roidsContainer is a struct that holds all the dependencies for the application.
 // It is recommended to use the `GetNeedle` function to get the global instance.
 type roidsContainer struct {
-	servicesGraph *dag.DAG
+	servicesGraph *serviceGraph
 }
 
 // Creates a new instance of the dependency container.
 // This function should not be used directly. Use `GetNeedle` instead.
-func newRoidsContainer() *roidsContainer {
-	return &roidsContainer{
-		servicesGraph: dag.NewDAG(),
+func newRoidsContainer(graph *serviceGraph) *roidsContainer {
+	if graph == nil {
+		dag := dag.NewDAG()
+		return &roidsContainer{
+			servicesGraph: newServiceGraph(dag),
+		}
+	} else {
+		return &roidsContainer{
+			servicesGraph: graph,
+		}
 	}
 }

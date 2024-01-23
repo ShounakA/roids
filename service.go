@@ -12,7 +12,6 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
-	"github.com/heimdalr/dag"
 )
 
 // Constant to ID Static lifetimes
@@ -70,7 +69,7 @@ func Inject[T interface{}]() T {
 	specType := reflect.TypeOf(new(T)).Elem()
 
 	// Implementation of service
-	service := getServiceByType(c.servicesGraph, specType)
+	service := c.servicesGraph.GetServiceByType(specType)
 	var impl T
 	if service.lifetimeType == StaticLifetime {
 		impl = (*(service.instance)).(T)
@@ -81,37 +80,13 @@ func Inject[T interface{}]() T {
 	return impl
 }
 
-// Function to search the dependency graph for the Service definition by the service specification type.
-// returns a pointer to the service definition, nil if service was not found
-func getServiceByType(graph *dag.DAG, specType reflect.Type) *Service {
-	lookup := &reverseLookupVisiter{searchType: specType, Service: nil}
-	graph.BFSWalk(lookup)
-	return lookup.Service
-}
-
-// Struct to perform a lookup from the search type.
-type reverseLookupVisiter struct {
-	vertexId   string
-	Service    *Service
-	searchType reflect.Type
-}
-
-// Function to lookup vertexId based on spec
-func (pv *reverseLookupVisiter) Visit(v dag.Vertexer) {
-	id, value := v.Vertex()
-	service := value.(*Service)
-	if service.SpecType == pv.searchType {
-		pv.vertexId = id
-		pv.Service = value.(*Service)
-		return
-	}
-}
-
 // Generic add service definition function.
 func addService[T interface{}](spec T, impl any, lifeTime string) error {
 
 	// Get Container
 	container := GetRoids()
+
+	// Check for argument errors
 	specType := reflect.TypeOf(spec).Elem()
 	if lifeTime != StaticLifetime && lifeTime != TransientLifetime {
 		return NewInvalidLifetimeError(nil, specType)
@@ -120,6 +95,7 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	if reflect.ValueOf(impl).Kind() != reflect.Func {
 		return NewInjectorError(specType)
 	}
+
 	ftype := reflect.TypeOf(impl)
 	implType := ftype.Out(0)
 	if !implType.Implements(specType) {
@@ -127,42 +103,35 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	}
 
 	// Add vertex for the service being added
-	lifeService := &Service{Injector: impl, lifetimeType: lifeTime, SpecType: specType}
-	thisV, err := container.servicesGraph.AddVertex(lifeService)
-	lifeService.Id = thisV
+	srcService := &Service{Injector: impl, lifetimeType: lifeTime, SpecType: specType}
+	err := container.servicesGraph.AddVertex(srcService)
 	if err != nil {
 		// It means we added a vertex for this service before via a constructor.
 		// SO we must lookup the id based on the service type.
-		service := getServiceByType(container.servicesGraph, specType)
+		service := container.servicesGraph.GetServiceByType(specType)
 		service.implType = implType
 		service.Injector = impl
 		service.lifetimeType = lifeTime
-		service.SpecType = lifeService.SpecType
-		service.Id = lifeService.Id
-		thisV = lifeService.Id
+		service.SpecType = specType
+		service.Id = srcService.Id
+		srcService = service
 	}
 
 	// Get all dependencies in injector
 	for i := 0; i < ftype.NumIn(); i++ {
 		field := ftype.In(i)
 		// Add vertex for dependency
-		depService := getServiceByType(container.servicesGraph, field)
+		depService := container.servicesGraph.GetServiceByType(field)
 		if depService == nil {
 			// Ignore the error as service = nil meaning we should not get an error adding vertex.
-			depV, _ := container.servicesGraph.AddVertex(&Service{SpecType: field})
-			err = container.servicesGraph.AddEdge(thisV, depV)
+			depService = &Service{SpecType: field}
+			_ = container.servicesGraph.AddVertex(depService)
+			err = container.servicesGraph.AddEdge(srcService, depService)
 		} else {
-			err = container.servicesGraph.AddEdge(thisV, depService.Id)
+			err = container.servicesGraph.AddEdge(srcService, depService)
 		}
 		if err != nil {
-			switch e := err.(type) {
-			case dag.EdgeLoopError:
-				return NewCircularDependencyError(e, specType)
-			case dag.EdgeDuplicateError:
-				return NewDuplicateEdgeError(e, thisV, specType)
-			default:
-				return NewUnknownError(e)
-			}
+			return err
 		}
 	}
 	return nil

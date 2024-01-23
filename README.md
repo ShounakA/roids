@@ -20,6 +20,9 @@
 [Enhancements](#enhancements)
 
 <br/>
+
+![Roids Logo](/assets/roids.png)
+
 Roids is a simple dependency injection container that you can use to share and pass services into your application.
 </div>
 
