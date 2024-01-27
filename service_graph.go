@@ -8,6 +8,7 @@
 package roids
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -80,6 +81,9 @@ func (graph *serviceGraph) GetVertex(id string) (*Service, error) {
 }
 
 func (graph *serviceGraph) AddVertex(service *Service) error {
+	if service == nil {
+		return errors.New("Cannot add nil service")
+	}
 	id, err := graph.dag.AddVertex(service)
 	service.Id = id
 	if err != nil {
@@ -89,6 +93,9 @@ func (graph *serviceGraph) AddVertex(service *Service) error {
 }
 
 func (graph *serviceGraph) AddEdge(srcService *Service, depService *Service) error {
+	if srcService == nil || depService == nil {
+		return errors.New("Cannot add edge to or from nil")
+	}
 	err := graph.dag.AddEdge(srcService.Id, depService.Id)
 	if err != nil {
 		switch e := err.(type) {
