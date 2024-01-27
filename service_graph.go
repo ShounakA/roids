@@ -8,6 +8,7 @@
 package roids
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -24,7 +25,7 @@ type (
 	// so that we can instantiate leaf deps by popping them out.
 	depVisiter struct {
 		// History of the dependent services visited.
-		Hist col.IStack[reflect.Type]
+		Hist col.IStack[string]
 	}
 
 	// Struct to perform a lookup from the search type.
@@ -49,23 +50,18 @@ func (graph *serviceGraph) IsLeafIgnoreError(id string) bool {
 }
 
 // Gets the order of instantiation, by traversing the graph breadth-first
-func (graph *serviceGraph) GetInstantiationOrder() col.IStack[reflect.Type] {
-	v := depVisiter{Hist: col.NewStack[reflect.Type](nil)}
+func (graph *serviceGraph) GetInstantiationOrder() col.IStack[string] {
+	v := depVisiter{Hist: col.NewStack[string](nil)}
 	graph.dag.BFSWalk(&v)
 	return v.Hist
 }
 
 // Gets the order of instantiation of the , by traversing the graph breadth-first
 func (graph *serviceGraph) GetServiceOrderById(id string) col.IStack[string] {
-	chVertex, _, _ := graph.dag.DescendantsWalker(id)
-	hist := col.NewStack[string](&id)
-	select {
-	case vertexId := <-chVertex:
-		if vertexId != "" {
-			hist.Push(vertexId)
-		}
-	}
-	return hist
+	subGraph, _, _ := graph.dag.GetDescendantsGraph(id)
+	v := depVisiter{Hist: col.NewStack[string](nil)}
+	subGraph.BFSWalk(&v)
+	return v.Hist
 }
 
 // Gets the Service struct from the graph by the interface type provided.
@@ -85,6 +81,9 @@ func (graph *serviceGraph) GetVertex(id string) (*Service, error) {
 }
 
 func (graph *serviceGraph) AddVertex(service *Service) error {
+	if service == nil {
+		return errors.New("Cannot add nil service")
+	}
 	id, err := graph.dag.AddVertex(service)
 	service.Id = id
 	if err != nil {
@@ -94,6 +93,9 @@ func (graph *serviceGraph) AddVertex(service *Service) error {
 }
 
 func (graph *serviceGraph) AddEdge(srcService *Service, depService *Service) error {
+	if srcService == nil || depService == nil {
+		return errors.New("Cannot add edge to or from nil")
+	}
 	err := graph.dag.AddEdge(srcService.Id, depService.Id)
 	if err != nil {
 		switch e := err.(type) {
@@ -123,7 +125,7 @@ func (pv *depVisiter) Visit(v dag.Vertexer) {
 	roids := GetRoids()
 	id, value := v.Vertex()
 	service := value.(*Service)
-	pv.Hist.Push(service.SpecType)
+	pv.Hist.Push(id)
 	isLeaf := roids.servicesGraph.IsLeafIgnoreError(id)
 	service.isLeaf = isLeaf
 }

@@ -17,9 +17,9 @@ import (
 // Thread-safe function to get the global instance of the dependency container.
 func GetRoids() *roidsContainer {
 	once.Do(func() {
-		instance = newRoidsContainer(nil)
+		globalRoidsContainer = newRoidsContainer(nil)
 	})
-	return instance
+	return globalRoidsContainer
 }
 
 // Builds all static services in container.
@@ -29,8 +29,8 @@ func Build() error {
 	order := roids.servicesGraph.GetInstantiationOrder()
 
 	for order.GetSize() > 0 {
-		serviceType := *order.Pop()
-		service := roids.servicesGraph.GetServiceByType(serviceType)
+		vertexId := *order.Pop()
+		service, _ := roids.servicesGraph.GetVertex(vertexId)
 		if service.lifetimeType == StaticLifetime {
 			if service.isLeaf && !service.created {
 				setStaticLeafDep(service)
@@ -61,8 +61,8 @@ func UNSAFE_Clear() {
  * Non-exported stuff
  */
 
-// Application wide instance of the dependency container.
-var instance *roidsContainer
+// Application wide globalRoidsContainer of the dependency container.
+var globalRoidsContainer *roidsContainer
 
 // Atomic boolean to ensure that the container is only created once.
 var once sync.Once
@@ -75,15 +75,19 @@ func buildTransientDep(service *Service) *any {
 
 	for hist.GetSize() > 0 {
 		id := *hist.Pop()
-		service, _ := roids.servicesGraph.GetVertex(id)
+		service, err := roids.servicesGraph.GetVertex(id)
+		if err != nil {
+			println("test")
+		}
 		if service.lifetimeType == StaticLifetime {
 			deps[service.SpecType] = service.instance
 		} else if service.lifetimeType == TransientLifetime {
 			if service.isLeaf {
-				instance := createTransientLeafDep(service)
-				deps[service.SpecType] = instance
+				transService := createTransientLeafDep(service)
+				deps[service.SpecType] = transService
 			} else {
-				deps[service.SpecType] = createTransientBranchDep(service, deps)
+				transService := createTransientBranchDep(service, deps)
+				deps[service.SpecType] = transService
 			}
 		}
 	}
@@ -159,8 +163,8 @@ func setStaticBranchDep(service *Service) {
 	injectorVal := reflect.ValueOf(injector)
 	args := getArgsForFunction(service)
 	results := injectorVal.Call(args)
-	instance := results[0].Interface()
-	service.instance = &instance
+	newStaticService := results[0].Interface()
+	service.instance = &newStaticService
 	service.created = true
 	return
 }

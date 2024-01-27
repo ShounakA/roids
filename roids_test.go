@@ -1,6 +1,7 @@
 package roids_test
 
 import (
+	"log"
 	"testing"
 
 	"github.com/ShounakA/roids"
@@ -50,6 +51,64 @@ type (
 		ogCycle iCycleService
 	}
 )
+
+type SqliteProvider struct {
+	db string
+}
+
+type IDbProvider interface {
+	Close() error
+}
+
+func NewSqliteProvider() *SqliteProvider {
+	return &SqliteProvider{
+		db: "test",
+	}
+}
+
+func (s *SqliteProvider) Close() error {
+	return nil
+}
+
+type TodoRepository struct {
+	db       IDbProvider
+	MemCache ICache
+}
+
+type ITodoRepository interface {
+	DoStuff() error
+}
+
+func (t *TodoRepository) DoStuff() error {
+	return nil
+}
+
+// NewTodoRepository creates a new TodoRepository
+// It requires a database provider and a cache
+func NewTodoRepository(db IDbProvider, memCache ICache) *TodoRepository {
+	return &TodoRepository{
+		db:       db,
+		MemCache: memCache,
+	}
+}
+
+type ICache interface {
+	Delete(k string)
+}
+
+type MyCache struct {
+	test string
+}
+
+func NewCache() *MyCache {
+	return &MyCache{
+		test: "test",
+	}
+}
+
+func (c *MyCache) Delete(k string) {
+	return
+}
 
 func newTestObject(service dependedService) *testObject {
 	return &testObject{
@@ -193,26 +252,24 @@ func TestInject_Transient_Branch(t *testing.T) {
 
 	_ = roids.GetRoids()
 
-	err := roids.AddTransientService(new(testInterface), newTestObject)
+	err := roids.AddTransientService(new(ITodoRepository), NewTodoRepository)
 	if err != nil {
-		t.Error("Should be able to add simple dependencies.", err.Error())
+		log.Fatal("Did not bind service.", err.Error())
+		return
 	}
-	err = roids.AddStaticService(new(dependedService), newDependedObject)
+	err = roids.AddStaticService(new(IDbProvider), NewSqliteProvider)
 	if err != nil {
-		t.Error("Should be able to add simple dependencies.", err.Error())
+		log.Fatal("Did not bind service.", err.Error())
+		return
 	}
-
+	err = roids.AddStaticService(new(ICache), NewCache)
+	if err != nil {
+		log.Fatal("Did not bind service.", err.Error())
+		return
+	}
 	roids.Build()
-
-	testService := roids.Inject[testInterface]()
-	if testService.DoSomethingBob() != "Testing add" {
-		t.Error("Did not inject service correctly.")
-	}
-	testService2 := roids.Inject[testInterface]()
-	if testService == testService2 {
-		t.Error("No transient :(")
-	}
-
+	todoRepo := roids.Inject[ITodoRepository]()
+	todoRepo.DoStuff()
 	roids.UNSAFE_Clear()
 }
 
