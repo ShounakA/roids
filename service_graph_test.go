@@ -5,20 +5,21 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/heimdalr/dag"
+	"github.com/ShounakA/roids/core"
 )
 
-var mockDag *dag.DAG
+var mockDag2 *core.AcyclicGraph
 var graph *serviceGraph
 
 func setupTest(tb testing.TB) func(tb testing.TB) {
 	log.Println("setup test")
-	mockDag = dag.NewDAG()
-	graph = newServiceGraph(mockDag, nil)
+	mockDag2 = core.NewGraph()
+
+	graph = newServiceGraph(mockDag2)
 
 	return func(tb testing.TB) {
 		graph = nil
-		mockDag = nil
+		mockDag2 = nil
 		log.Println("teardown test")
 	}
 }
@@ -26,7 +27,7 @@ func TestInstantiatingServiceGraph(t *testing.T) {
 	tearDown := setupTest(t)
 	defer tearDown(t)
 
-	if graph.dag != mockDag {
+	if graph.dag2 != mockDag2 {
 		t.Errorf("Did no instantiate service graph correctly.")
 	}
 }
@@ -44,7 +45,7 @@ func TestAddVertex(t *testing.T) {
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
-	actualOrder := graph.dag.GetOrder()
+	actualOrder := graph.dag2.GetOrder()
 	if expectedOrder != actualOrder {
 		t.Errorf("Did not add the vertex correctly.")
 	}
@@ -64,7 +65,7 @@ func TestAddVertex_InvalidParameters(t *testing.T) {
 		t.Errorf("Should not allow nil")
 	}
 
-	if graph.dag.GetOrder() != expectedOrder {
+	if graph.dag2.GetOrder() != expectedOrder {
 		t.Errorf("Should not add nil to service graph")
 	}
 }
@@ -90,7 +91,7 @@ func TestAddVertex_DuplicateService(t *testing.T) {
 	if err == nil {
 		t.Errorf("Should no add duplicate vertex")
 	}
-	actualOrder := graph.dag.GetOrder()
+	actualOrder := graph.dag2.GetOrder()
 	if expectedOrder != actualOrder {
 		t.Errorf("Did not add the vertex correctly.")
 	}
@@ -122,7 +123,7 @@ func TestAddEdge(t *testing.T) {
 		t.Errorf("Should add edge! %s", err.Error())
 	}
 
-	if graph.dag.GetSize() != expectedSize {
+	if graph.dag2.GetSize() != expectedSize {
 		t.Errorf("Should have added edge to dag")
 	}
 }
@@ -175,11 +176,11 @@ func TestAddEdge_CircularDeps(t *testing.T) {
 	if err == nil {
 		t.Errorf("Should not create circular dependency")
 	}
-	if nerr, ok := err.(*CircularDependencyError); !ok {
+	if nerr, ok := err.(*core.CircularDependencyError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
 
-	if graph.dag.GetSize() != expectedSize {
+	if graph.dag2.GetSize() != expectedSize {
 		t.Errorf("Should have added edge to dag")
 	}
 }
@@ -214,11 +215,11 @@ func TestAddEdge_DuplicateEdge(t *testing.T) {
 	if err == nil {
 		t.Errorf("Should not create duplicate edge")
 	}
-	if nerr, ok := err.(*DuplicateEdgeError); !ok {
+	if nerr, ok := err.(*core.DuplicateEdgeError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
 
-	if graph.dag.GetSize() != expectedSize {
+	if graph.dag2.GetSize() != expectedSize {
 		t.Errorf("Should have added edge to dag")
 	}
 }

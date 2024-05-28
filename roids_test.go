@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ShounakA/roids"
+	"github.com/ShounakA/roids/core"
 )
 
 type (
@@ -229,7 +230,7 @@ func TestAddStaticService_InvalidInterface(t *testing.T) {
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if nerr, ok := err.(*roids.ServiceError); !ok {
+	if nerr, ok := err.(*core.ServiceError); !ok {
 		t.Errorf("%s should be ServiceError", nerr.Error())
 	}
 	roids.UNSAFE_Clear()
@@ -242,7 +243,7 @@ func TestAddStaticService_NotAConstructor(t *testing.T) {
 	if err == nil {
 		t.Error("Should catch that impl does not match spec.", err.Error())
 	}
-	if nerr, ok := err.(*roids.InjectorError); !ok {
+	if nerr, ok := err.(*core.InjectorError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
 	roids.UNSAFE_Clear()

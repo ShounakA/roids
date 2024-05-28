@@ -12,29 +12,35 @@ type IDInterface interface {
 }
 
 type traverseAction interface {
-	Do(node *node)
+	// TODO wrap Node with something that can return node
+	Do(node *Node)
 }
 
-// node represents a node in the graph
-type node struct {
+// Node represents a Node in the graph
+type Node struct {
 	value    interface{}
 	id       string
-	children []*node
+	children []*Node
 }
 
-func (n *node) IsLeaf() bool {
+func (n *Node) IsLeaf() bool {
 	return len(n.children) == 0
+}
+
+func (n *Node) Value() interface{} {
+	return n.value
 }
 
 // AcyclicGraph represents a directed acyclic AcyclicGraph
 type AcyclicGraph struct {
-	nodes map[string]*node
+	nodes map[string]*Node
+	size  int
 	muDAG sync.RWMutex
 }
 
 // NewGraph creates a new graph
 func NewGraph() *AcyclicGraph {
-	return &AcyclicGraph{nodes: make(map[string]*node)}
+	return &AcyclicGraph{nodes: make(map[string]*Node)}
 }
 
 // AddVertex adds a node to the graph
@@ -43,7 +49,7 @@ func (g *AcyclicGraph) AddVertex(value interface{}) (string, error) {
 	defer g.muDAG.Unlock()
 	id := value.(IDInterface).ID()
 	if _, exists := g.nodes[id]; !exists {
-		g.nodes[id] = &node{value: value, id: id}
+		g.nodes[id] = &Node{value: value, id: id}
 		return id, nil
 	}
 	return "", errors.New("Node with same value already exists in graph")
@@ -53,8 +59,17 @@ func (g *AcyclicGraph) AddVertex(value interface{}) (string, error) {
 func (g *AcyclicGraph) AddEdge(from, to string) error {
 	g.muDAG.Lock()
 	defer g.muDAG.Unlock()
-	fromNode := g.nodes[from]
-	toNode := g.nodes[to]
+	fromNode, ok := g.nodes[from]
+	if !ok {
+		return errors.New("from vertex does not exist")
+	}
+	toNode, ok := g.nodes[to]
+	if !ok {
+		return errors.New("to vertex does not exist")
+	}
+	if fromNode.hasEdgeTo(to) {
+		return &EdgeExistsError{}
+	}
 	if fromNode != nil && toNode != nil {
 		fromNode.children = append(fromNode.children, toNode)
 	}
@@ -62,12 +77,13 @@ func (g *AcyclicGraph) AddEdge(from, to string) error {
 	recStack := make(map[string]bool)
 	if g.hasCycleHelper(fromNode, visited, recStack) {
 		fromNode.children = fromNode.children[:len(fromNode.children)-1]
-		return errors.New("cycle detected")
+		return &EdgeCycleError{}
 	}
+	g.size++
 	return nil
 }
 
-func (g *AcyclicGraph) GetVertex(id string) (*node, error) {
+func (g *AcyclicGraph) GetVertex(id string) (*Node, error) {
 	g.muDAG.Lock()
 	defer g.muDAG.Unlock()
 	if node, ok := g.nodes[id]; !ok {
@@ -77,7 +93,7 @@ func (g *AcyclicGraph) GetVertex(id string) (*node, error) {
 	}
 }
 
-// Traverse the graph breadt-first from a specified start node ID
+// Traverse the graph breadth-first from a specified start node ID
 func (g *AcyclicGraph) TraverseBFFrom(start string, tAction traverseAction) {
 	g.muDAG.Lock()
 	defer g.muDAG.Unlock()
@@ -95,7 +111,7 @@ func (g *AcyclicGraph) TraverseBFFrom(start string, tAction traverseAction) {
 	for queue.Len() > 0 {
 		element := queue.Front()
 		queue.Remove(element)
-		node := element.Value.(*node)
+		node := element.Value.(*Node)
 		tAction.Do(node)
 
 		for _, child := range node.children {
@@ -123,7 +139,7 @@ func (g *AcyclicGraph) TraverseBF(tAction traverseAction) {
 			for queue.Len() > 0 {
 				element := queue.Front()
 				queue.Remove(element)
-				node := element.Value.(*node)
+				node := element.Value.(*Node)
 				tAction.Do(node)
 
 				for _, child := range node.children {
@@ -138,7 +154,7 @@ func (g *AcyclicGraph) TraverseBF(tAction traverseAction) {
 }
 
 // hasCycleHelper is a utility function to check for cycles in the graph
-func (g *AcyclicGraph) hasCycleHelper(node *node, visited map[string]bool, recStack map[string]bool) bool {
+func (g *AcyclicGraph) hasCycleHelper(node *Node, visited map[string]bool, recStack map[string]bool) bool {
 	if recStack[node.id] {
 		return true
 	}
@@ -159,20 +175,13 @@ func (g *AcyclicGraph) hasCycleHelper(node *node, visited map[string]bool, recSt
 	return false
 }
 
-// hasCycle checks if the graph has a cycle
-// func (g *acyclicGraph) hasCycle() bool {
-// 	visited := make(map[string]bool)
-// 	recStack := make(map[string]bool)
+func (g *AcyclicGraph) GetOrder() int {
+	return len(g.nodes)
+}
 
-// 	for _, node := range g.nodes {
-// 		if !visited[node.id] {
-// 			if g.hasCycleHelper(node, visited, recStack) {
-// 				return true
-// 			}
-// 		}
-// 	}
-// 	return false
-// }
+func (g *AcyclicGraph) GetSize() int {
+	return g.size
+}
 
 func (g *AcyclicGraph) calculateInDegrees() map[string]int {
 	inDegree := make(map[string]int)
@@ -203,4 +212,13 @@ func (g *AcyclicGraph) findRoots() []string {
 	}
 
 	return roots
+}
+
+func (n *Node) hasEdgeTo(id string) bool {
+	for _, c := range n.children {
+		if c.id == id {
+			return true
+		}
+	}
+	return false
 }

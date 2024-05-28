@@ -1,4 +1,4 @@
-package roids
+package core
 
 import (
 	"fmt"
@@ -35,6 +35,14 @@ type (
 	UnknownError struct {
 		err error
 	}
+
+	// DAG Errors
+
+	EdgeCycleError struct{}
+
+	EdgeExistsError struct{}
+
+	VertexExistsError struct{}
 )
 
 func NewServiceError(spec reflect.Type, impl reflect.Type) *ServiceError {
@@ -100,4 +108,16 @@ func NewUnknownError(err error) *UnknownError {
 
 func (e *UnknownError) Error() string {
 	return fmt.Sprintf("Unknown error occurred. -> %s", e.err.Error())
+}
+
+func (e *EdgeCycleError) Error() string {
+	return "Cycle detected when trying add edge."
+}
+
+func (e *EdgeExistsError) Error() string {
+	return "An edge with the requested vertices exists"
+}
+
+func (e *VertexExistsError) Error() string {
+	return "Vertex with the same content exists"
 }
