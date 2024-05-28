@@ -13,12 +13,14 @@ import (
 	"reflect"
 
 	"github.com/ShounakA/roids/col"
+	"github.com/ShounakA/roids/core"
 	"github.com/heimdalr/dag"
 )
 
 type (
 	serviceGraph struct {
-		dag *dag.DAG
+		dag  *dag.DAG
+		dag2 *core.AcyclicGraph
 	}
 
 	// Dependency visitor. It keeps track of the nodes visited into a stack,
@@ -37,9 +39,10 @@ type (
 )
 
 // Create a new service graph, with custom pointer functions.
-func newServiceGraph(d *dag.DAG) *serviceGraph {
+func newServiceGraph(d *dag.DAG, d2 *core.AcyclicGraph) *serviceGraph {
 	return &serviceGraph{
-		dag: d,
+		dag:  d,
+		dag2: d2,
 	}
 }
 

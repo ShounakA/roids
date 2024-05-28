@@ -27,7 +27,6 @@ func Build() error {
 	roids := GetRoids()
 
 	order := roids.servicesGraph.GetInstantiationOrder()
-
 	for order.GetSize() > 0 {
 		vertexId := *order.Pop()
 		service, _ := roids.servicesGraph.GetVertex(vertexId)
@@ -181,7 +180,7 @@ func newRoidsContainer(graph *serviceGraph) *roidsContainer {
 	if graph == nil {
 		dag := dag.NewDAG()
 		return &roidsContainer{
-			servicesGraph: newServiceGraph(dag),
+			servicesGraph: newServiceGraph(dag, nil),
 		}
 	} else {
 		return &roidsContainer{

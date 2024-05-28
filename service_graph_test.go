@@ -14,7 +14,7 @@ var graph *serviceGraph
 func setupTest(tb testing.TB) func(tb testing.TB) {
 	log.Println("setup test")
 	mockDag = dag.NewDAG()
-	graph = newServiceGraph(mockDag)
+	graph = newServiceGraph(mockDag, nil)
 
 	return func(tb testing.TB) {
 		graph = nil
