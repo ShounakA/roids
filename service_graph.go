@@ -9,16 +9,15 @@ package roids
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/ShounakA/roids/col"
-	"github.com/heimdalr/dag"
+	"github.com/ShounakA/roids/core"
 )
 
 type (
 	serviceGraph struct {
-		dag *dag.DAG
+		dag *core.AcyclicGraph
 	}
 
 	// Dependency visitor. It keeps track of the nodes visited into a stack,
@@ -37,50 +36,46 @@ type (
 )
 
 // Create a new service graph, with custom pointer functions.
-func newServiceGraph(d *dag.DAG) *serviceGraph {
+func newServiceGraph(d2 *core.AcyclicGraph) *serviceGraph {
 	return &serviceGraph{
-		dag: d,
+		dag: d2,
 	}
 }
 
-// Checks if the provided the vertex (via ID) is a leaf
-func (graph *serviceGraph) IsLeafIgnoreError(id string) bool {
-	isLeaf, _ := graph.dag.IsLeaf(id)
-	return isLeaf
-}
-
 // Gets the order of instantiation, by traversing the graph breadth-first
-func (graph *serviceGraph) GetInstantiationOrder() col.IStack[string] {
+func (graph *serviceGraph) getInstantiationOrder() col.IStack[string] {
 	v := depVisiter{Hist: col.NewStack[string](nil)}
-	graph.dag.BFSWalk(&v)
+	graph.dag.TraverseBF(&v)
 	return v.Hist
 }
 
 // Gets the order of instantiation of the , by traversing the graph breadth-first
-func (graph *serviceGraph) GetServiceOrderById(id string) col.IStack[string] {
-	subGraph, _, _ := graph.dag.GetDescendantsGraph(id)
+func (graph *serviceGraph) getServiceOrderById(id string) col.IStack[string] {
 	v := depVisiter{Hist: col.NewStack[string](nil)}
-	subGraph.BFSWalk(&v)
+	graph.dag.TraverseBFFrom(id, &v)
 	return v.Hist
 }
 
 // Gets the Service struct from the graph by the interface type provided.
-func (graph *serviceGraph) GetServiceByType(specType reflect.Type) *Service {
-	lookup := &reverseLookupVisiter{searchType: specType, Service: nil}
-	graph.dag.BFSWalk(lookup)
-	return lookup.Service
+func (graph *serviceGraph) getServiceByType(specType reflect.Type) *Service {
+	tmpService := Service{SpecType: specType}
+	if node, err := graph.dag.GetVertex(tmpService.ID()); err != nil {
+		return nil
+	} else {
+		return node.Value().(*Service)
+	}
 }
 
-func (graph *serviceGraph) GetVertex(id string) (*Service, error) {
+func (graph *serviceGraph) getVertex(id string) (*Service, error) {
 	vertex, err := graph.dag.GetVertex(id)
 	if err != nil {
 		return nil, err
 	}
-	service := vertex.(*Service)
+	service := vertex.Value().(*Service)
 	return service, nil
 }
 
-func (graph *serviceGraph) AddVertex(service *Service) error {
+func (graph *serviceGraph) addVertex(service *Service) error {
 	if service == nil {
 		return errors.New("Cannot add nil service")
 	}
@@ -92,51 +87,31 @@ func (graph *serviceGraph) AddVertex(service *Service) error {
 	return nil
 }
 
-func (graph *serviceGraph) AddEdge(srcService *Service, depService *Service) error {
+func (graph *serviceGraph) addEdge(srcService *Service, depService *Service) error {
 	if srcService == nil || depService == nil {
 		return errors.New("Cannot add edge to or from nil")
 	}
 	err := graph.dag.AddEdge(srcService.Id, depService.Id)
 	if err != nil {
 		switch e := err.(type) {
-		case dag.EdgeLoopError:
-			return NewCircularDependencyError(e, srcService.SpecType)
-		case dag.EdgeDuplicateError:
-			return NewDuplicateEdgeError(e, srcService.Id, srcService.SpecType)
+		case *core.EdgeCycleError:
+			return core.NewCircularDependencyError(e, srcService.SpecType)
+		case *core.EdgeExistsError:
+			return core.NewDuplicateEdgeError(e, srcService.Id, srcService.SpecType)
 		default:
-			return NewUnknownError(e)
+			return core.NewUnknownError(e)
 		}
 	}
 	return nil
 }
 
 // Function to clear the services graph
-func (graph *serviceGraph) ClearGraph() {
-	graph.dag = dag.NewDAG()
+func (graph *serviceGraph) clearGraph() {
+	graph.dag = core.NewGraph()
 }
 
-// Function to show the state of the graph
-func (graph *serviceGraph) ShowGraph() {
-	fmt.Println(graph.dag.String())
-}
-
-// Visit implementation to traverse the entire dependency graph breadth-first
-func (pv *depVisiter) Visit(v dag.Vertexer) {
-	roids := GetRoids()
-	id, value := v.Vertex()
-	service := value.(*Service)
-	pv.Hist.Push(id)
-	isLeaf := roids.servicesGraph.IsLeafIgnoreError(id)
-	service.isLeaf = isLeaf
-}
-
-// Function to lookup vertexId based on spec
-func (pv *reverseLookupVisiter) Visit(v dag.Vertexer) {
-	id, value := v.Vertex()
-	service := value.(*Service)
-	if service.SpecType == pv.searchType {
-		pv.vertexId = id
-		pv.Service = value.(*Service)
-		return
-	}
+func (pv *depVisiter) Do(v *core.Traverser) {
+	service := v.GetVertex().Value().(*Service)
+	pv.Hist.Push(service.Id)
+	service.isLeaf = v.GetVertex().IsLeaf()
 }

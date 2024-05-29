@@ -1,32 +1,30 @@
 package roids
 
 import (
-	"log"
 	"reflect"
 	"testing"
 
-	"github.com/heimdalr/dag"
+	"github.com/ShounakA/roids/core"
 )
 
-var mockDag *dag.DAG
+var mockDag2 *core.AcyclicGraph
 var graph *serviceGraph
 
 func setupTest(tb testing.TB) func(tb testing.TB) {
-	log.Println("setup test")
-	mockDag = dag.NewDAG()
-	graph = newServiceGraph(mockDag)
+	mockDag2 = core.NewGraph()
+
+	graph = newServiceGraph(mockDag2)
 
 	return func(tb testing.TB) {
 		graph = nil
-		mockDag = nil
-		log.Println("teardown test")
+		mockDag2 = nil
 	}
 }
 func TestInstantiatingServiceGraph(t *testing.T) {
 	tearDown := setupTest(t)
 	defer tearDown(t)
 
-	if graph.dag != mockDag {
+	if graph.dag != mockDag2 {
 		t.Errorf("Did no instantiate service graph correctly.")
 	}
 }
@@ -40,7 +38,7 @@ func TestAddVertex(t *testing.T) {
 	testSpec := reflect.TypeOf(specValue)
 	myService := &Service{SpecType: testSpec}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
@@ -59,7 +57,7 @@ func TestAddVertex_InvalidParameters(t *testing.T) {
 	defer tearDown(t)
 	expectedOrder := 0
 
-	err := graph.AddVertex(nil)
+	err := graph.addVertex(nil)
 	if err == nil {
 		t.Errorf("Should not allow nil")
 	}
@@ -78,15 +76,15 @@ func TestAddVertex_DuplicateService(t *testing.T) {
 	testSpec := reflect.TypeOf(specValue)
 	myService := &Service{SpecType: testSpec}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
-	err = graph.AddVertex(myService)
+	err = graph.addVertex(myService)
 	if err == nil {
 		t.Errorf("Should no add duplicate vertex")
 	}
-	err = graph.AddVertex(&Service{SpecType: testSpec})
+	err = graph.addVertex(&Service{SpecType: testSpec})
 	if err == nil {
 		t.Errorf("Should no add duplicate vertex")
 	}
@@ -108,16 +106,16 @@ func TestAddEdge(t *testing.T) {
 	testSpec2 := reflect.TypeOf(int64(5))
 	myService2 := &Service{SpecType: testSpec2}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
-	err = graph.AddVertex(myService2)
+	err = graph.addVertex(myService2)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
 
-	err = graph.AddEdge(myService, myService2)
+	err = graph.addEdge(myService, myService2)
 	if err != nil {
 		t.Errorf("Should add edge! %s", err.Error())
 	}
@@ -133,12 +131,12 @@ func TestAddEdge_InvalidParameters(t *testing.T) {
 	testSpec := reflect.TypeOf(4)
 	myService := &Service{SpecType: testSpec}
 
-	err := graph.AddEdge(nil, myService)
+	err := graph.addEdge(nil, myService)
 	if err == nil {
 		t.Errorf("Should not allow nil services!")
 	}
 
-	err = graph.AddEdge(myService, nil)
+	err = graph.addEdge(myService, nil)
 	if err == nil {
 		t.Errorf("Should not allow nil services!")
 	}
@@ -157,25 +155,25 @@ func TestAddEdge_CircularDeps(t *testing.T) {
 	testSpec2 := reflect.TypeOf(int64(5))
 	myService2 := &Service{SpecType: testSpec2}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
-	err = graph.AddVertex(myService2)
+	err = graph.addVertex(myService2)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
 
-	err = graph.AddEdge(myService, myService2)
+	err = graph.addEdge(myService, myService2)
 	if err != nil {
 		t.Errorf("Should add edge! %s", err.Error())
 	}
 
-	err = graph.AddEdge(myService2, myService)
+	err = graph.addEdge(myService2, myService)
 	if err == nil {
 		t.Errorf("Should not create circular dependency")
 	}
-	if nerr, ok := err.(*CircularDependencyError); !ok {
+	if nerr, ok := err.(*core.CircularDependencyError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
 
@@ -196,25 +194,25 @@ func TestAddEdge_DuplicateEdge(t *testing.T) {
 	testSpec2 := reflect.TypeOf(int64(5))
 	myService2 := &Service{SpecType: testSpec2}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
-	err = graph.AddVertex(myService2)
+	err = graph.addVertex(myService2)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
 
-	err = graph.AddEdge(myService, myService2)
+	err = graph.addEdge(myService, myService2)
 	if err != nil {
 		t.Errorf("Should add edge! %s", err.Error())
 	}
 
-	err = graph.AddEdge(myService, myService2)
+	err = graph.addEdge(myService, myService2)
 	if err == nil {
 		t.Errorf("Should not create duplicate edge")
 	}
-	if nerr, ok := err.(*DuplicateEdgeError); !ok {
+	if nerr, ok := err.(*core.DuplicateEdgeError); !ok {
 		t.Error("Unexpected error returned.", nerr.Error())
 	}
 
@@ -232,12 +230,12 @@ func TestGetVertex(t *testing.T) {
 	testSpec := reflect.TypeOf(specValue)
 	myService := &Service{SpecType: testSpec}
 
-	err := graph.AddVertex(myService)
+	err := graph.addVertex(myService)
 	if err != nil {
 		t.Errorf("Should add vertex! %s", err.Error())
 	}
 
-	actualService, err := graph.GetVertex(myService.Id)
+	actualService, err := graph.getVertex(myService.Id)
 	if err != nil {
 		t.Errorf("Should be able to get vertex. %s", err.Error())
 	}
