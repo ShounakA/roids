@@ -111,7 +111,7 @@ func (e *UnknownError) Error() string {
 }
 
 func (e *EdgeCycleError) Error() string {
-	return "Cycle detected when trying add edge."
+	return "Cycle detected when trying to add edge."
 }
 
 func (e *EdgeExistsError) Error() string {

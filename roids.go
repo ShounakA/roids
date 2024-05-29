@@ -8,6 +8,7 @@
 package roids
 
 import (
+	"log"
 	"reflect"
 	"sync"
 
@@ -26,10 +27,10 @@ func GetRoids() *roidsContainer {
 func Build() error {
 	roids := GetRoids()
 
-	order := roids.servicesGraph.GetInstantiationOrder()
+	order := roids.servicesGraph.getInstantiationOrder()
 	for order.GetSize() > 0 {
 		vertexId := *order.Pop()
-		service, _ := roids.servicesGraph.GetVertex(vertexId)
+		service, _ := roids.servicesGraph.getVertex(vertexId)
 		if service.lifetimeType == core.StaticLifetime {
 			if service.isLeaf && !service.created {
 				setStaticLeafDep(service)
@@ -47,7 +48,7 @@ func Build() error {
 // SUPER UNSAFE. Only used during testing. Dont use while running an application.
 func UNSAFE_Clear() {
 	roids := GetRoids()
-	roids.servicesGraph.ClearGraph()
+	roids.servicesGraph.clearGraph()
 }
 
 /**
@@ -63,14 +64,14 @@ var once sync.Once
 // Build a new instance of the specified service.
 func buildTransientDep(service *Service) *any {
 	roids := GetRoids()
-	hist := roids.servicesGraph.GetServiceOrderById(service.Id)
+	hist := roids.servicesGraph.getServiceOrderById(service.Id)
 	deps := make(map[reflect.Type]*any)
 
 	for hist.GetSize() > 0 {
 		id := *hist.Pop()
-		service, err := roids.servicesGraph.GetVertex(id)
+		service, err := roids.servicesGraph.getVertex(id)
 		if err != nil {
-			println("test")
+			log.Panicf("Should have the vertex in the graph")
 		}
 		if service.lifetimeType == core.StaticLifetime {
 			deps[service.SpecType] = service.instance
@@ -101,7 +102,7 @@ func getArgsForFunction(service *Service) []reflect.Value {
 	// Get the type of each argument
 	for i := 0; i < injectedType.NumIn(); i++ {
 		serviceType := injectedType.In(i)
-		service := roids.servicesGraph.GetServiceByType(serviceType)
+		service := roids.servicesGraph.getServiceByType(serviceType)
 		if service.lifetimeType == core.StaticLifetime {
 			instanceVal := reflect.ValueOf(*(service.instance))
 			argValues[i] = instanceVal

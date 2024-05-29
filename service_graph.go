@@ -17,7 +17,7 @@ import (
 
 type (
 	serviceGraph struct {
-		dag2 *core.AcyclicGraph
+		dag *core.AcyclicGraph
 	}
 
 	// Dependency visitor. It keeps track of the nodes visited into a stack,
@@ -38,36 +38,36 @@ type (
 // Create a new service graph, with custom pointer functions.
 func newServiceGraph(d2 *core.AcyclicGraph) *serviceGraph {
 	return &serviceGraph{
-		dag2: d2,
+		dag: d2,
 	}
 }
 
 // Gets the order of instantiation, by traversing the graph breadth-first
-func (graph *serviceGraph) GetInstantiationOrder() col.IStack[string] {
+func (graph *serviceGraph) getInstantiationOrder() col.IStack[string] {
 	v := depVisiter{Hist: col.NewStack[string](nil)}
-	graph.dag2.TraverseBF(&v)
+	graph.dag.TraverseBF(&v)
 	return v.Hist
 }
 
 // Gets the order of instantiation of the , by traversing the graph breadth-first
-func (graph *serviceGraph) GetServiceOrderById(id string) col.IStack[string] {
+func (graph *serviceGraph) getServiceOrderById(id string) col.IStack[string] {
 	v := depVisiter{Hist: col.NewStack[string](nil)}
-	graph.dag2.TraverseBFFrom(id, &v)
+	graph.dag.TraverseBFFrom(id, &v)
 	return v.Hist
 }
 
 // Gets the Service struct from the graph by the interface type provided.
-func (graph *serviceGraph) GetServiceByType(specType reflect.Type) *Service {
+func (graph *serviceGraph) getServiceByType(specType reflect.Type) *Service {
 	tmpService := Service{SpecType: specType}
-	if node, err := graph.dag2.GetVertex(tmpService.ID()); err != nil {
+	if node, err := graph.dag.GetVertex(tmpService.ID()); err != nil {
 		return nil
 	} else {
 		return node.Value().(*Service)
 	}
 }
 
-func (graph *serviceGraph) GetVertex(id string) (*Service, error) {
-	vertex, err := graph.dag2.GetVertex(id)
+func (graph *serviceGraph) getVertex(id string) (*Service, error) {
+	vertex, err := graph.dag.GetVertex(id)
 	if err != nil {
 		return nil, err
 	}
@@ -75,11 +75,11 @@ func (graph *serviceGraph) GetVertex(id string) (*Service, error) {
 	return service, nil
 }
 
-func (graph *serviceGraph) AddVertex(service *Service) error {
+func (graph *serviceGraph) addVertex(service *Service) error {
 	if service == nil {
 		return errors.New("Cannot add nil service")
 	}
-	id, err := graph.dag2.AddVertex(service)
+	id, err := graph.dag.AddVertex(service)
 	service.Id = id
 	if err != nil {
 		return err
@@ -87,11 +87,11 @@ func (graph *serviceGraph) AddVertex(service *Service) error {
 	return nil
 }
 
-func (graph *serviceGraph) AddEdge(srcService *Service, depService *Service) error {
+func (graph *serviceGraph) addEdge(srcService *Service, depService *Service) error {
 	if srcService == nil || depService == nil {
 		return errors.New("Cannot add edge to or from nil")
 	}
-	err := graph.dag2.AddEdge(srcService.Id, depService.Id)
+	err := graph.dag.AddEdge(srcService.Id, depService.Id)
 	if err != nil {
 		switch e := err.(type) {
 		case *core.EdgeCycleError:
@@ -106,13 +106,12 @@ func (graph *serviceGraph) AddEdge(srcService *Service, depService *Service) err
 }
 
 // Function to clear the services graph
-func (graph *serviceGraph) ClearGraph() {
-	graph.dag2 = core.NewGraph()
+func (graph *serviceGraph) clearGraph() {
+	graph.dag = core.NewGraph()
 }
 
-// TODO wrap core.Node with a different struct so its not accessible
-func (pv *depVisiter) Do(v *core.Node) {
-	service := v.Value().(*Service)
+func (pv *depVisiter) Do(v *core.Traverser) {
+	service := v.GetVertex().Value().(*Service)
 	pv.Hist.Push(service.Id)
-	service.isLeaf = v.IsLeaf()
+	service.isLeaf = v.GetVertex().IsLeaf()
 }

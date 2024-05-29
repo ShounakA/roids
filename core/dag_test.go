@@ -65,18 +65,18 @@ func TestAddEdge_CycleDetect(t *testing.T) {
 	err = graph.AddEdge(id2, id2)
 
 	assert.NotNil(t, err)
-	assert.EqualError(t, err, "Cycle detected when trying add edge.")
+	assert.EqualError(t, err, "Cycle detected when trying to add edge.")
 }
 
 type testTraverse struct {
 	path string
 }
 
-func (t *testTraverse) Do(val *Node) {
+func (t *testTraverse) Do(val *Traverser) {
 	if t.path == "" {
-		t.path = fmt.Sprintf("%d", ((*val).value.(*testType)).Val)
+		t.path = fmt.Sprintf("%d", ((*val).node.value.(*testType)).Val)
 	} else {
-		t.path = fmt.Sprintf("%s,%d", t.path, ((*val).value.(*testType)).Val)
+		t.path = fmt.Sprintf("%s,%d", t.path, ((*val).node.value.(*testType)).Val)
 	}
 }
 

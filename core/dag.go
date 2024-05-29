@@ -3,7 +3,6 @@ package core
 import (
 	"container/list"
 	"errors"
-	"fmt"
 	"sync"
 )
 
@@ -11,36 +10,43 @@ type IDInterface interface {
 	ID() string
 }
 
-type traverseAction interface {
-	// TODO wrap Node with something that can return node
-	Do(node *Node)
+type Traverser struct {
+	node *node
 }
 
-// Node represents a Node in the graph
-type Node struct {
+func (t *Traverser) GetVertex() *node {
+	return t.node
+}
+
+type traverseAction interface {
+	Do(node *Traverser)
+}
+
+// node represents a node in the graph
+type node struct {
 	value    interface{}
 	id       string
-	children []*Node
+	children []*node
 }
 
-func (n *Node) IsLeaf() bool {
+func (n *node) IsLeaf() bool {
 	return len(n.children) == 0
 }
 
-func (n *Node) Value() interface{} {
+func (n *node) Value() interface{} {
 	return n.value
 }
 
 // AcyclicGraph represents a directed acyclic AcyclicGraph
 type AcyclicGraph struct {
-	nodes map[string]*Node
+	nodes map[string]*node
 	size  int
 	muDAG sync.RWMutex
 }
 
 // NewGraph creates a new graph
 func NewGraph() *AcyclicGraph {
-	return &AcyclicGraph{nodes: make(map[string]*Node)}
+	return &AcyclicGraph{nodes: make(map[string]*node)}
 }
 
 // AddVertex adds a node to the graph
@@ -49,7 +55,7 @@ func (g *AcyclicGraph) AddVertex(value interface{}) (string, error) {
 	defer g.muDAG.Unlock()
 	id := value.(IDInterface).ID()
 	if _, exists := g.nodes[id]; !exists {
-		g.nodes[id] = &Node{value: value, id: id}
+		g.nodes[id] = &node{value: value, id: id}
 		return id, nil
 	}
 	return "", errors.New("Node with same value already exists in graph")
@@ -83,7 +89,7 @@ func (g *AcyclicGraph) AddEdge(from, to string) error {
 	return nil
 }
 
-func (g *AcyclicGraph) GetVertex(id string) (*Node, error) {
+func (g *AcyclicGraph) GetVertex(id string) (*node, error) {
 	g.muDAG.Lock()
 	defer g.muDAG.Unlock()
 	if node, ok := g.nodes[id]; !ok {
@@ -99,7 +105,6 @@ func (g *AcyclicGraph) TraverseBFFrom(start string, tAction traverseAction) {
 	defer g.muDAG.Unlock()
 	startNode, exists := g.nodes[start]
 	if !exists {
-		fmt.Println("Start node not found in the graph")
 		return
 	}
 
@@ -111,8 +116,8 @@ func (g *AcyclicGraph) TraverseBFFrom(start string, tAction traverseAction) {
 	for queue.Len() > 0 {
 		element := queue.Front()
 		queue.Remove(element)
-		node := element.Value.(*Node)
-		tAction.Do(node)
+		node := element.Value.(*node)
+		tAction.Do(&Traverser{node: node})
 
 		for _, child := range node.children {
 			if !visited[child.id] {
@@ -139,8 +144,8 @@ func (g *AcyclicGraph) TraverseBF(tAction traverseAction) {
 			for queue.Len() > 0 {
 				element := queue.Front()
 				queue.Remove(element)
-				node := element.Value.(*Node)
-				tAction.Do(node)
+				node := element.Value.(*node)
+				tAction.Do(&Traverser{node: node})
 
 				for _, child := range node.children {
 					if !visited[child.id] {
@@ -154,7 +159,7 @@ func (g *AcyclicGraph) TraverseBF(tAction traverseAction) {
 }
 
 // hasCycleHelper is a utility function to check for cycles in the graph
-func (g *AcyclicGraph) hasCycleHelper(node *Node, visited map[string]bool, recStack map[string]bool) bool {
+func (g *AcyclicGraph) hasCycleHelper(node *node, visited map[string]bool, recStack map[string]bool) bool {
 	if recStack[node.id] {
 		return true
 	}
@@ -214,7 +219,7 @@ func (g *AcyclicGraph) findRoots() []string {
 	return roots
 }
 
-func (n *Node) hasEdgeTo(id string) bool {
+func (n *node) hasEdgeTo(id string) bool {
 	for _, c := range n.children {
 		if c.id == id {
 			return true

@@ -64,7 +64,7 @@ func Inject[T interface{}]() T {
 	specType := reflect.TypeOf(new(T)).Elem()
 
 	// Implementation of service
-	service := c.servicesGraph.GetServiceByType(specType)
+	service := c.servicesGraph.getServiceByType(specType)
 	var impl T
 	if service.lifetimeType == core.StaticLifetime {
 		impl = (*(service.instance)).(T)
@@ -99,11 +99,11 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 
 	// Add vertex for the service being added
 	srcService := &Service{Injector: impl, lifetimeType: lifeTime, SpecType: specType}
-	err := container.servicesGraph.AddVertex(srcService)
+	err := container.servicesGraph.addVertex(srcService)
 	if err != nil {
 		// It means we added a vertex for this service before via a constructor.
 		// SO we must lookup the id based on the service type.
-		service := container.servicesGraph.GetServiceByType(specType)
+		service := container.servicesGraph.getServiceByType(specType)
 		service.implType = implType
 		service.Injector = impl
 		service.lifetimeType = lifeTime
@@ -115,14 +115,14 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 	for i := 0; i < ftype.NumIn(); i++ {
 		field := ftype.In(i)
 		// Add vertex for dependency
-		depService := container.servicesGraph.GetServiceByType(field)
+		depService := container.servicesGraph.getServiceByType(field)
 		if depService == nil {
 			// Ignore the error as service = nil meaning we should not get an error adding vertex.
 			depService = &Service{SpecType: field}
-			_ = container.servicesGraph.AddVertex(depService)
-			err = container.servicesGraph.AddEdge(srcService, depService)
+			_ = container.servicesGraph.addVertex(depService)
+			err = container.servicesGraph.addEdge(srcService, depService)
 		} else {
-			err = container.servicesGraph.AddEdge(srcService, depService)
+			err = container.servicesGraph.addEdge(srcService, depService)
 		}
 		if err != nil {
 			return err
