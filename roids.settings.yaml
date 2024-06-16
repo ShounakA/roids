@@ -1,0 +1,4 @@
+roids:
+  version: 0.3.0
+app:
+  message: "Test from YAML"

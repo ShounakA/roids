@@ -6,6 +6,7 @@ import (
 
 	"github.com/ShounakA/roids"
 	"github.com/ShounakA/roids/core"
+	"github.com/ShounakA/roids/core/config"
 )
 
 type (
@@ -163,6 +164,10 @@ func (obj *toCycleService) WontWorkBeforeB() string {
 
 func (obj *bCycleService) WontWorkBeforeMain() {
 	return
+}
+
+type TestConfig struct {
+	Message string `json:"message"`
 }
 
 func TestGetRoids(t *testing.T) {
@@ -349,5 +354,39 @@ func TestAddTransientService(t *testing.T) {
 		t.Error("Should be able to add simple dependencies.", err.Error())
 	}
 
+	roids.UNSAFE_Clear()
+}
+
+func TestAddConfigurationBuilder_JSON(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.json", core.JsonConfig)
+	if err != nil {
+		t.Error("Should add configuration with no errors")
+	}
+
+	roids.Build()
+	cfg := roids.Inject[config.IConfiguration[TestConfig]]()
+	msg := cfg.Config().Message
+	if msg != "Test from JSON" {
+		t.Error("Should add configuration file.")
+	}
+	roids.UNSAFE_Clear()
+}
+
+func TestAddConfigurationBuilder_YAML(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.yaml", core.YamlConfig)
+	if err != nil {
+		t.Error("Should add configuration with no errors")
+	}
+
+	roids.Build()
+	cfg := roids.Inject[config.IConfiguration[TestConfig]]()
+	msg := cfg.Config().Message
+	if msg != "Test from YAML" {
+		t.Errorf("Should add configuration file. Got %s", msg)
+	}
 	roids.UNSAFE_Clear()
 }
