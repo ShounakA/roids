@@ -8,11 +8,15 @@
 package roids
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/ShounakA/roids/core"
+	"github.com/ShounakA/roids/core/config"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
 )
 
 // Struct representing an injectable service. (aka Provider, Assembler, Service, or Injector)
@@ -127,6 +131,48 @@ func addService[T interface{}](spec T, impl any, lifeTime string) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// Add a custom configuration file.
+// Default roids.settings.json file.
+func AddConfigurationBuilder[T any](filePath string, cfgType core.ConfigType) error {
+	// Read file
+	readFile := func() ([]byte, error) {
+		return os.ReadFile(filePath)
+	}
+	return AddCustomConfiguration[T](readFile, cfgType)
+}
+
+// Add Custom Configuration
+// configuraitonRead expects a slice of bytes encoded as json or yaml depending on the config type.
+func AddCustomConfiguration[T any](configurationRead func() ([]byte, error), cfgType core.ConfigType) error {
+	setFile, err := configurationRead()
+	if err != nil {
+		return err
+	}
+	var configFile config.RoidsConfiguration[T]
+	switch cfgType {
+	case core.JsonConfig:
+		err = json.Unmarshal(setFile, &configFile)
+		if err != nil {
+			return err
+		}
+	case core.YamlConfig:
+		err = yaml.Unmarshal(setFile, &configFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	// add the service
+	err = addService(config.Create[config.IConfiguration[T]](), func() *config.RoidsConfiguration[T] {
+		return &configFile
+	}, core.StaticLifetime)
+
+	if err != nil {
+		return err
 	}
 	return nil
 }

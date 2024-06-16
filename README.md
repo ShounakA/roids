@@ -52,31 +52,18 @@ go get github.com/ShounakA/roids
 ## Usage
 
 ```golang
-func NewJuiceService(o IOmegalulService) *JuiceService {
-	return &JuiceService{
-		omegalul: o,
-		Message:  "Juicing...",
-	}
+
+type interface HelloWorld {
+	SayHello() string
 }
 
-func NewTestService(dService IDepService, o IOmegalulService) *TestService {
-	return &TestService{
-		yo:       5,
-		Dsvc:     dService,
-		omegalul: o,
-	}
+type struct Hw {
+	message string
 }
 
-func NewDepService() *DepService {
-	return &DepService{
-		Do: 5,
-	}
-}
-
-func NewOmegalul() *omegalul {
-	return &omegalul{
-		Message: "L OMEGALUL L",
-	}
+func (hw *Hw) SayHello() {
+	println("hello,", hw.message)
+	return hw.message
 }
 
 func main() {
@@ -84,25 +71,26 @@ func main() {
     // Instantiate the one and only roids container
 	_ = roids.GetRoids()
 
-    // Add your services
-	roids.AddTransientService(new(IOmegalulService), NewOmegalul)
-	roids.AddTransientService(new(IDepService), NewDepService)
-	roids.AddStaticService(new(IJuiceService), NewJuiceService)
-	roids.AddStaticService(new(ITestService), NewTestService)
+    // Add your servicess
+	roids.AddStaticService(new(HelloWorld), func() {
+		return &Hw {
+			message: "chad"
+		}
+	})
 	
 	// Build your needle, to instantiate your services
 	roids.Build()
 
-    // Inject your instantiated services with configured implementations anywhere in your app
-	testService := roids.Inject[ITestService]()
-	depService := roids.Inject[IDepService]()
-	juiceService := roids.Inject[IJuiceService]()
 
 	// Do stuff
-	juiceService.Juice(3)
-	testService.Something()
-	depService.AlsoDoSomething()
-	testService.Omegalul()
+	e.GET("/", func(c echo.Context) error {
+		// Inject your instantiated services with configured implementations anywhere in your app
+		helloService := roids.Inject[HelloWorld]()
+
+		return c.String(http.StatusOK, helloService.SayHello())
+	})
+	e.Logger.Fatal(e.Start(":1323"))
+s
 }
 ```
 
