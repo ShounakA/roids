@@ -1,8 +1,20 @@
 {
     "roids": {
-        "version": "0.3.0"
+        "version": "0.4.0"
     },
     "app": {
-        "message": "Test from JSON"
+        "message": "Test from JSON",
+        "somenumber": 420,
+        "somearray": [
+            "this is a test",
+            "this is a another test",
+            "here is another"
+        ],
+        "complextype": {
+            "somenumber2": 12.4,
+            "otherarray": [
+                123, 456, 987
+            ]
+        }
     }
 }
