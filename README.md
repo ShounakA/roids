@@ -51,58 +51,113 @@ go get github.com/ShounakA/roids
 
 ## Usage
 
+### Configuration File
+You can add your own configuration file. 
+The name of the file can be anything, but must follow a certain interface (shape). Only JSON and Yaml files are currently supported.
+
+```javascript
+{
+	// the "roids" field is currently required. 
+    "roids": {
+        "version": "0.4.0"
+    },
+    "app": {
+		// this should match the shape of the struct you want to add.
+        "message": "Test from JSON",
+        "somenumber": 420,
+        "somearray": [
+            "this is a test",
+            "this is a another test",
+            "here is another"
+        ],
+        "complextype": {
+            "somenumber2": 12.4,
+            "otherarray": [
+                123, 456, 987
+            ]
+        }
+    }
+}
+```
+
+```yaml
+# roids field is required.
+roids:
+  version: 0.4.0
+# this should match the shape of the struct you want to add.
+app:
+  message: "Test from YAML"
+  somenumber: 69
+  somearray:
+  - "this is a test"
+  - "this is a another test"
+  - "here is another"
+  complextype:
+    somenumber2: 12.4
+    otherarray:
+    - 123
+    - 456
+    - 987
+
+```
+
 ```golang
-func NewJuiceService(o IOmegalulService) *JuiceService {
-	return &JuiceService{
-		omegalul: o,
-		Message:  "Juicing...",
-	}
+
+type TestConfig struct {
+	Message string `json:"message"`
+	SomeNumber int `json:"somenumber"`
+	SomeArray []string `json:"somearray"`
+	ComplexType struct {
+		SomeNumber2 float64 `json:"somenumber2"`
+		OtherArray []float64 `json:"otherarray"`
+	} `json:"complextype"`
 }
 
-func NewTestService(dService IDepService, o IOmegalulService) *TestService {
-	return &TestService{
-		yo:       5,
-		Dsvc:     dService,
-		omegalul: o,
-	}
+type interface HelloWorld {
+	SayHello() string
 }
 
-func NewDepService() *DepService {
-	return &DepService{
-		Do: 5,
-	}
+type struct Hw {
+	message string
 }
 
-func NewOmegalul() *omegalul {
-	return &omegalul{
-		Message: "L OMEGALUL L",
-	}
+func (hw *Hw) SayHello() {
+	println("hello,", hw.message)
+	return hw.message
 }
 
 func main() {
 
     // Instantiate the one and only roids container
 	_ = roids.GetRoids()
+	
+	// [Optional] add a configuration file. You can inject this config anywhere in your app.
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.json", core.JsonConfig)
+	if err != nil {
+		e.Logger.Fatal("Could not read configuration file.")
+	}
 
-    // Add your services
-	roids.AddTransientService(new(IOmegalulService), NewOmegalul)
-	roids.AddTransientService(new(IDepService), NewDepService)
-	roids.AddStaticService(new(IJuiceService), NewJuiceService)
-	roids.AddStaticService(new(ITestService), NewTestService)
+    // Add your servicess
+	roids.AddStaticService(new(HelloWorld), func(configAdapter config.IConfiguration[TestConfig]) {
+		config := configAdapter.Config()
+		return &Hw {
+			message: config.Message
+		}
+	})
 	
 	// Build your needle, to instantiate your services
 	roids.Build()
 
-    // Inject your instantiated services with configured implementations anywhere in your app
-	testService := roids.Inject[ITestService]()
-	depService := roids.Inject[IDepService]()
-	juiceService := roids.Inject[IJuiceService]()
 
 	// Do stuff
-	juiceService.Juice(3)
-	testService.Something()
-	depService.AlsoDoSomething()
-	testService.Omegalul()
+	e.GET("/", func(c echo.Context) error {
+		// Inject your instantiated services with configured implementations anywhere in your app
+		helloService := roids.Inject[HelloWorld]()
+
+		return c.String(http.StatusOK, helloService.SayHello())
+	})
+	e.Logger.Fatal(e.Start(":1323"))
+s
 }
 ```
 

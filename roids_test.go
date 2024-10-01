@@ -6,6 +6,7 @@ import (
 
 	"github.com/ShounakA/roids"
 	"github.com/ShounakA/roids/core"
+	"github.com/ShounakA/roids/core/config"
 )
 
 type (
@@ -163,6 +164,35 @@ func (obj *toCycleService) WontWorkBeforeB() string {
 
 func (obj *bCycleService) WontWorkBeforeMain() {
 	return
+}
+
+type testConfigInjectedService struct {
+	Message string
+}
+
+type iTestConfigInjectedService interface {
+	ShowInjectedMessage() string
+}
+
+func newTestConfigInjectedService(config config.IConfiguration[TestConfig]) *testConfigInjectedService{
+	injectedMessage := config.Config().Message
+	return &testConfigInjectedService{
+		Message: injectedMessage,
+	}
+}
+
+func (inj *testConfigInjectedService) ShowInjectedMessage() string {
+	return inj.Message
+}
+
+type TestConfig struct {
+	Message string `json:"message"`
+	SomeNumber int `json:"somenumber"`
+	SomeArray []string `json:"somearray"`
+	ComplexType struct {
+		SomeNumber2 float64 `json:"somenumber2"`
+		OtherArray []float64 `json:"otherarray"`
+	} `json:"complextype"`
 }
 
 func TestGetRoids(t *testing.T) {
@@ -347,6 +377,118 @@ func TestAddTransientService(t *testing.T) {
 	err = roids.AddTransientService(new(dependedService), newDependedObject)
 	if err != nil {
 		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestAddConfigurationBuilder_JSON(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.json", core.JsonConfig)
+	if err != nil {
+		t.Error("Should add configuration with no errors")
+	}
+
+	roids.Build()
+	cfg := roids.Inject[config.IConfiguration[TestConfig]]()
+	msg := cfg.Config().Message
+	if msg != "Test from JSON" {
+		t.Error("Should add configuration file.")
+	}
+
+	num := cfg.Config().SomeNumber
+	if num != 420 {
+		t.Error("Should deseriallize numbers correctly.")
+	}
+
+	somearray := cfg.Config().SomeArray
+	if len(somearray) != 3 {
+		t.Error("Should deseriallize arrays correctly.")
+	}
+
+	complextype := cfg.Config().ComplexType
+	if complextype.SomeNumber2 != 12.4 {
+		t.Error("Should deseriallize complex types")
+	}
+
+	if len(complextype.OtherArray) != 3 {
+		t.Error("Should deseriallize complex type arrays")
+	}
+
+	expectedArray := []float64{123,456,987}
+	for i, v := range complextype.OtherArray {
+		if expectedArray[i] != v {
+			t.Errorf("Expected element %f. Got %f", expectedArray[i], v)
+		}
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestAddConfigurationBuilder_YAML(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.yaml", core.YamlConfig)
+	if err != nil {
+		t.Error("Should add configuration with no errors")
+	}
+
+	roids.Build()
+	cfg := roids.Inject[config.IConfiguration[TestConfig]]()
+	msg := cfg.Config().Message
+	if msg != "Test from YAML" {
+		t.Errorf("Should add configuration file. Got %s", msg)
+	}
+
+	num := cfg.Config().SomeNumber
+	if num != 69 {
+		t.Error("Should deseriallize numbers correctly.")
+	}
+
+	somearray := cfg.Config().SomeArray
+	if len(somearray) != 3 {
+		t.Error("Should deseriallize arrays correctly.")
+	}
+
+	complextype := cfg.Config().ComplexType
+	if complextype.SomeNumber2 != 12.4 {
+		t.Error("Should deseriallize complex types")
+	}
+
+	if len(complextype.OtherArray) != 3 {
+		t.Error("Should deseriallize complex type arrays")
+	}
+
+	expectedArray := []float64{123,456,987}
+	for i, v := range complextype.OtherArray {
+		if expectedArray[i] != v {
+			t.Errorf("Expected element %f. Got %f", expectedArray[i], v)
+		}
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestInjectIConfigurationIntoStaticService(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddConfigurationBuilder[TestConfig]("./roids.settings.yaml", core.YamlConfig)
+	if err != nil {
+		t.Error("Should add configuration with no errors")
+	}
+
+	roids.AddStaticService(new(iTestConfigInjectedService), newTestConfigInjectedService)
+
+	roids.Build()
+
+	cfg := roids.Inject[config.IConfiguration[TestConfig]]()
+	injSvc := roids.Inject[iTestConfigInjectedService]()
+
+	msg := cfg.Config().Message
+	actualMsg := injSvc.ShowInjectedMessage()
+	if msg != actualMsg {
+		t.Errorf("Should have injected config into service %s. Got %s", msg, actualMsg)
 	}
 
 	roids.UNSAFE_Clear()
