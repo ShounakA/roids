@@ -140,19 +140,19 @@ func (g *AcyclicGraph) TraverseBF(tAction traverseAction) {
 		if !visited[startNode.id] {
 			queue.PushBack(startNode)
 			visited[startNode.id] = true
+		}
+	}
 
-			for queue.Len() > 0 {
-				element := queue.Front()
-				queue.Remove(element)
-				node := element.Value.(*node)
-				tAction.Do(&Traverser{node: node})
+	for queue.Len() > 0 {
+		element := queue.Front()
+		queue.Remove(element)
+		node := element.Value.(*node)
+		tAction.Do(&Traverser{node: node})
 
-				for _, child := range node.children {
-					if !visited[child.id] {
-						queue.PushBack(child)
-						visited[child.id] = true
-					}
-				}
+		for _, child := range node.children {
+			if !visited[child.id] {
+				queue.PushBack(child)
+				visited[child.id] = true
 			}
 		}
 	}

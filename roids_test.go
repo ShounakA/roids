@@ -29,7 +29,47 @@ type (
 	iToCycleService interface {
 		WontWorkBeforeB() string
 	}
+
+	myInterface interface {
+		SameShape() string
+	}
+
+	myInterfacePart2 interface {
+		SameShape() string
+	}
 )
+
+type shape struct {
+	test string
+	dep  testInterface
+}
+
+type shapePart2 struct {
+	test string
+	dep  testInterface
+}
+
+func newShape(dep testInterface) *shape {
+	return &shape{
+		test: "test",
+		dep:  dep,
+	}
+}
+
+func newShapePart2(dep testInterface) *shapePart2 {
+	return &shapePart2{
+		test: "testset",
+		dep:  dep,
+	}
+}
+
+func (s *shape) SameShape() string {
+	return s.test + s.dep.DoSomethingBob()
+}
+
+func (s *shapePart2) SameShape() string {
+	return s.test + s.dep.DoSomethingBob()
+}
 
 type (
 	testObject struct {
@@ -174,7 +214,7 @@ type iTestConfigInjectedService interface {
 	ShowInjectedMessage() string
 }
 
-func newTestConfigInjectedService(config config.IConfiguration[TestConfig]) *testConfigInjectedService{
+func newTestConfigInjectedService(config config.IConfiguration[TestConfig]) *testConfigInjectedService {
 	injectedMessage := config.Config().Message
 	return &testConfigInjectedService{
 		Message: injectedMessage,
@@ -186,12 +226,12 @@ func (inj *testConfigInjectedService) ShowInjectedMessage() string {
 }
 
 type TestConfig struct {
-	Message string `json:"message"`
-	SomeNumber int `json:"somenumber"`
-	SomeArray []string `json:"somearray"`
+	Message     string   `json:"message"`
+	SomeNumber  int      `json:"somenumber"`
+	SomeArray   []string `json:"somearray"`
 	ComplexType struct {
-		SomeNumber2 float64 `json:"somenumber2"`
-		OtherArray []float64 `json:"otherarray"`
+		SomeNumber2 float64   `json:"somenumber2"`
+		OtherArray  []float64 `json:"otherarray"`
 	} `json:"complextype"`
 }
 
@@ -416,7 +456,7 @@ func TestAddConfigurationBuilder_JSON(t *testing.T) {
 		t.Error("Should deseriallize complex type arrays")
 	}
 
-	expectedArray := []float64{123,456,987}
+	expectedArray := []float64{123, 456, 987}
 	for i, v := range complextype.OtherArray {
 		if expectedArray[i] != v {
 			t.Errorf("Expected element %f. Got %f", expectedArray[i], v)
@@ -460,7 +500,7 @@ func TestAddConfigurationBuilder_YAML(t *testing.T) {
 		t.Error("Should deseriallize complex type arrays")
 	}
 
-	expectedArray := []float64{123,456,987}
+	expectedArray := []float64{123, 456, 987}
 	for i, v := range complextype.OtherArray {
 		if expectedArray[i] != v {
 			t.Errorf("Expected element %f. Got %f", expectedArray[i], v)
@@ -489,6 +529,39 @@ func TestInjectIConfigurationIntoStaticService(t *testing.T) {
 	actualMsg := injSvc.ShowInjectedMessage()
 	if msg != actualMsg {
 		t.Errorf("Should have injected config into service %s. Got %s", msg, actualMsg)
+	}
+
+	roids.UNSAFE_Clear()
+}
+
+func TestInjectionOfSameShape(t *testing.T) {
+	_ = roids.GetRoids()
+
+	if err := roids.AddStaticService(new(dependedService), newDependedObject); err != nil {
+		t.Errorf("Should be able to add simple dependencies. %s", err.Error())
+	}
+
+	if err := roids.AddStaticService(new(testInterface), newTestObject); err != nil {
+		t.Errorf("Should add configuration with no errors: %s", err.Error())
+	}
+
+	if err := roids.AddStaticService(new(myInterface), newShape); err != nil {
+		t.Errorf("Should add configuration with no errors: %s", err.Error())
+	}
+
+	if err := roids.AddStaticService(new(myInterfacePart2), newShapePart2); err != nil {
+		t.Errorf("Should add configuration with no errors %s", err.Error())
+	}
+
+	roids.Build()
+
+	shape := roids.Inject[myInterface]()
+	if s := shape.SameShape(); s != "testTesting add" {
+		t.Errorf("Expected 'testTesting add' but got %s", s)
+	}
+	shapePart2 := roids.Inject[myInterfacePart2]()
+	if s := shapePart2.SameShape(); s != "testsetTesting add" {
+		t.Errorf("Expected 'testsetTesting add' but got %s", s)
 	}
 
 	roids.UNSAFE_Clear()
