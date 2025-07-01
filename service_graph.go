@@ -66,6 +66,7 @@ func (graph *serviceGraph) getServiceByType(specType reflect.Type) *Service {
 	}
 }
 
+// Get a specific dependency node based on the id provided
 func (graph *serviceGraph) getVertex(id string) (*Service, error) {
 	vertex, err := graph.dag.GetVertex(id)
 	if err != nil {
@@ -75,6 +76,7 @@ func (graph *serviceGraph) getVertex(id string) (*Service, error) {
 	return service, nil
 }
 
+// Adds a dependency node to the service graph.
 func (graph *serviceGraph) addVertex(service *Service) error {
 	if service == nil {
 		return errors.New("Cannot add nil service")
@@ -87,6 +89,7 @@ func (graph *serviceGraph) addVertex(service *Service) error {
 	return nil
 }
 
+// Adds a services edge. This edge represents what the srcService depends on.
 func (graph *serviceGraph) addEdge(srcService *Service, depService *Service) error {
 	if srcService == nil || depService == nil {
 		return errors.New("Cannot add edge to or from nil")

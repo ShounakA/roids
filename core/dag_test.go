@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -69,15 +69,14 @@ func TestAddEdge_CycleDetect(t *testing.T) {
 }
 
 type testTraverse struct {
-	path string
+	path []int
 }
 
+// Do appends the visited node's value to the path slice.
 func (t *testTraverse) Do(val *Traverser) {
-	if t.path == "" {
-		t.path = fmt.Sprintf("%d", ((*val).node.value.(*testType)).Val)
-	} else {
-		t.path = fmt.Sprintf("%s,%d", t.path, ((*val).node.value.(*testType)).Val)
-	}
+	// The value is asserted to be of *testType to extract the integer.
+	nodeValue := ((*val).node.value.(*testType)).Val
+	t.path = append(t.path, nodeValue)
 }
 
 func TestTraverseBF(t *testing.T) {
@@ -85,15 +84,39 @@ func TestTraverseBF(t *testing.T) {
 	id1, _ := graph.AddVertex(&testType{Val: 1})
 	id2, _ := graph.AddVertex(&testType{Val: 2})
 	id3, _ := graph.AddVertex(&testType{Val: 3})
+	id4, _ := graph.AddVertex(&testType{Val: 4})
+
+	// second tree
+	id5, _ := graph.AddVertex(&testType{Val: 5})
+	id6, _ := graph.AddVertex(&testType{Val: 6})
 
 	err := graph.AddEdge(id1, id2)
 	assert.NoError(t, err)
-	err = graph.AddEdge(id1, id3)
+	err = graph.AddEdge(id2, id3)
+	assert.NoError(t, err)
+	err = graph.AddEdge(id2, id4)
 	assert.NoError(t, err)
 
-	actualTraverse := testTraverse{path: ""}
+	err = graph.AddEdge(id5, id6)
+	assert.NoError(t, err)
+
+	actualTraverse := testTraverse{}
 	graph.TraverseBF(&actualTraverse)
-	assert.Equal(t, "1,2,3", actualTraverse.path)
+	path := actualTraverse.path
+
+	assert.Len(t, path, 6, "Should have visited all 6 nodes")
+
+	level0 := path[0:2]
+	sort.Ints(level0)
+	assert.Equal(t, []int{1, 5}, level0, "Level 0 nodes (roots) should be {1, 5}")
+
+	level1 := path[2:4]
+	sort.Ints(level1)
+	assert.Equal(t, []int{2, 6}, level1, "Level 1 nodes should be {2, 6}")
+
+	level2 := path[4:6]
+	sort.Ints(level2)
+	assert.Equal(t, []int{3, 4}, level2, "Level 2 nodes should be {3, 4}")
 }
 
 func TestTraverseBFFrom(t *testing.T) {
@@ -110,7 +133,11 @@ func TestTraverseBFFrom(t *testing.T) {
 	err = graph.AddEdge(id3, id4)
 	assert.NoError(t, err)
 
-	actualTraverse := testTraverse{path: ""}
+	actualTraverse := testTraverse{}
 	graph.TraverseBFFrom(id3, &actualTraverse)
-	assert.Equal(t, "3,4", actualTraverse.path)
+	path := actualTraverse.path
+
+	level0 := path[0:2]
+	sort.Ints(level0)
+	assert.Equal(t, []int{3, 4}, level0, "Level 0 nodes (roots) should be {3, 4}")
 }
