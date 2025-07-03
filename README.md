@@ -21,7 +21,7 @@
 
 <br/>
 
-![Roids Logo](/assets/roids.png)
+![Roids Logo](/assets/roids.jpeg)
 
 Roids is a simple dependency injection container that you can use to share and pass services into your application.
 </div>
