@@ -566,3 +566,25 @@ func TestInjectionOfSameShape(t *testing.T) {
 
 	roids.UNSAFE_Clear()
 }
+
+func TestStaticDependantOnTransient(t *testing.T) {
+	_ = roids.GetRoids()
+
+	err := roids.AddStaticService(new(testInterface), newTestObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = roids.AddTransientService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+	err = roids.AddTransientService(new(dependedService), newDependedObject)
+	if err != nil {
+		t.Error("Should be able to add simple dependencies.", err.Error())
+	}
+
+	roids.Build()
+	test := roids.Inject[testInterface]()
+	test.DoSomethingBob()
+	roids.UNSAFE_Clear()
+}
