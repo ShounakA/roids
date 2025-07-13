@@ -37,6 +37,8 @@ type Service struct {
 	instance *any
 	// True the dependency does not require another to be instantiated.
 	isLeaf bool
+
+	isRoot bool
 }
 
 // String function for *Service type.

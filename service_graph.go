@@ -8,6 +8,7 @@
 package roids
 
 import (
+	"container/list"
 	"errors"
 	"reflect"
 
@@ -17,14 +18,16 @@ import (
 
 type (
 	serviceGraph struct {
-		dag *core.AcyclicGraph
+		dag           *core.AcyclicGraph
+		staticDepsMap map[reflect.Type]*any
 	}
 
 	// Dependency visitor. It keeps track of the nodes visited into a stack,
 	// so that we can instantiate leaf deps by popping them out.
 	depVisiter struct {
 		// History of the dependent services visited.
-		Hist col.IStack[string]
+		Hist   col.IStack[string]
+		HistV2 *list.List
 	}
 
 	// Struct to perform a lookup from the search type.
@@ -38,21 +41,32 @@ type (
 // Create a new service graph, with custom pointer functions.
 func newServiceGraph(d2 *core.AcyclicGraph) *serviceGraph {
 	return &serviceGraph{
-		dag: d2,
+		dag:           d2,
+		staticDepsMap: make(map[reflect.Type]*any),
 	}
+}
+
+func (graph *serviceGraph) Print() {
+	graph.dag.Print()
 }
 
 // Gets the order of instantiation, by traversing the graph breadth-first
 func (graph *serviceGraph) getInstantiationOrder() col.IStack[string] {
-	v := depVisiter{Hist: col.NewStack[string](nil)}
-	graph.dag.TraverseBF(&v)
+	v := depVisiter{Hist: col.NewStack[string](nil), HistV2: list.New()}
+	graph.dag.TraverseTopological(&v)
+	// println(v.Hist.String())
+	v.Hist.Reverse()
+	// println(v.Hist.String())
 	return v.Hist
 }
 
 // Gets the order of instantiation of the , by traversing the graph breadth-first
 func (graph *serviceGraph) getServiceOrderById(id string) col.IStack[string] {
-	v := depVisiter{Hist: col.NewStack[string](nil)}
-	graph.dag.TraverseBFFrom(id, &v)
+	v := depVisiter{Hist: col.NewStack[string](nil), HistV2: list.New()}
+	graph.dag.TraverseTopologicalFrom(id, &v)
+	println(v.Hist.String())
+	v.Hist.Reverse()
+	println(v.Hist.String())
 	return v.Hist
 }
 
@@ -94,7 +108,7 @@ func (graph *serviceGraph) addEdge(srcService *Service, depService *Service) err
 	if srcService == nil || depService == nil {
 		return errors.New("Cannot add edge to or from nil")
 	}
-	err := graph.dag.AddEdge(srcService.Id, depService.Id)
+	err := graph.dag.AddEdge(depService.Id, srcService.Id)
 	if err != nil {
 		switch e := err.(type) {
 		case *core.EdgeCycleError:
@@ -117,4 +131,5 @@ func (pv *depVisiter) Do(v *core.Traverser) {
 	service := v.GetVertex().Value().(*Service)
 	pv.Hist.Push(service.Id)
 	service.isLeaf = v.GetVertex().IsLeaf()
+	service.isRoot = v.GetVertex().IsRoot()
 }

@@ -39,10 +39,10 @@ func Build() error {
 		service, _ := roids.servicesGraph.getVertex(vertexId)
 		roids.Logger.Debug(fmt.Sprintf("Building static service %s:%s", service.ID(), service.SpecType.String()))
 		if service.lifetimeType == core.StaticLifetime {
-			if service.isLeaf && !service.created {
+			if service.isRoot && !service.created {
 				roids.Logger.Debug("Creating leaf service...")
 				setStaticLeafDep(service)
-			} else if !service.isLeaf && !service.created {
+			} else if !service.isRoot && !service.created {
 				roids.Logger.Debug("Creating branch service...")
 				setStaticBranchDep(service)
 			} else {
@@ -76,7 +76,7 @@ func buildTransientDep(service *Service) *any {
 	roids := GetRoids()
 	roids.Logger.Debug(fmt.Sprintf("Building transient service %s:%s", service.ID(), service.SpecType.String()))
 	hist := roids.servicesGraph.getServiceOrderById(service.Id)
-	deps := make(map[reflect.Type]*any)
+	deps := roids.servicesGraph.staticDepsMap
 	roids.Logger.Debug(hist.String())
 	for hist.GetSize() > 0 {
 		id := *hist.Pop()
@@ -89,7 +89,7 @@ func buildTransientDep(service *Service) *any {
 		case core.StaticLifetime:
 			deps[service.SpecType] = service.instance
 		case core.TransientLifetime:
-			if service.isLeaf {
+			if service.isRoot {
 				roids.Logger.Debug("Creating leaf service...")
 				transService := createTransientLeafDep(service)
 				deps[service.SpecType] = transService
@@ -163,7 +163,9 @@ func createTransientBranchDep(service *Service, deps map[reflect.Type]*any) *any
 // These services should not have parameters in there injector functions.
 // Meaning they can be created by calling the injector.
 func setStaticLeafDep(service *Service) {
+	r := GetRoids()
 	service.instance = createTransientLeafDep(service)
+	r.servicesGraph.staticDepsMap[service.SpecType] = service.instance
 	service.created = true
 }
 
@@ -171,12 +173,14 @@ func setStaticLeafDep(service *Service) {
 // Static services can depend on Transient services,
 // so we may need to create build one
 func setStaticBranchDep(service *Service) {
+	r := GetRoids()
 	injector := service.Injector
 	injectorVal := reflect.ValueOf(injector)
 	args := getArgsForFunction(service)
 	results := injectorVal.Call(args)
 	newStaticService := results[0].Interface()
 	service.instance = &newStaticService
+	r.servicesGraph.staticDepsMap[service.SpecType] = service.instance
 	service.created = true
 	return
 }

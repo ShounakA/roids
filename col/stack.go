@@ -17,6 +17,7 @@ type IStack[T any] interface {
 	Display()
 	String() string
 	GetSize() uint64
+	Reverse()
 }
 
 // A Stack type that can hold "any" one type of value
@@ -83,4 +84,26 @@ func Zero[T any]() T {
 
 func IsZero[T comparable](v T) bool {
 	return v == *new(T)
+}
+
+// Reverse reverses the order of the elements in the stack.
+func (stack *Stack[T]) Reverse() {
+	// If the stack has 0 or 1 elements, it is already reversed.
+	if stack.length <= 1 {
+		return
+	}
+
+	var zero T
+	tempStack := NewStack[T](&zero)
+	tempStack.Pop() // Make the stack truly empty.
+
+	for stack.length > 0 {
+		item := stack.Pop()
+		if item != nil {
+			tempStack.Push(*item)
+		}
+	}
+
+	stack.head = tempStack.head
+	stack.length = tempStack.length
 }
