@@ -63,10 +63,8 @@ func (graph *serviceGraph) getInstantiationOrder() col.IStack[string] {
 // Gets the order of instantiation of the , by traversing the graph breadth-first
 func (graph *serviceGraph) getServiceOrderById(id string) col.IStack[string] {
 	v := depVisiter{Hist: col.NewStack[string](nil), HistV2: list.New()}
-	graph.dag.TraverseTopologicalFrom(id, &v)
-	println(v.Hist.String())
+	graph.dag.TraverseTopologicalTo(id, &v)
 	v.Hist.Reverse()
-	println(v.Hist.String())
 	return v.Hist
 }
 
