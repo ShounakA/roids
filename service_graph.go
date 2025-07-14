@@ -18,8 +18,7 @@ import (
 
 type (
 	serviceGraph struct {
-		dag           *core.AcyclicGraph
-		staticDepsMap map[reflect.Type]*any
+		dag *core.AcyclicGraph
 	}
 
 	// Dependency visitor. It keeps track of the nodes visited into a stack,
@@ -41,8 +40,7 @@ type (
 // Create a new service graph, with custom pointer functions.
 func newServiceGraph(d2 *core.AcyclicGraph) *serviceGraph {
 	return &serviceGraph{
-		dag:           d2,
-		staticDepsMap: make(map[reflect.Type]*any),
+		dag: d2,
 	}
 }
 
