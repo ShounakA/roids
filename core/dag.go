@@ -293,6 +293,92 @@ func (g *AcyclicGraph) TraverseTopologicalFrom(start string, tAction traverseAct
 	return nil
 }
 
+// TraverseTopologicalTo performs a topological sort on the subgraph of all nodes
+// that are ancestors of a given end node ID (including the end node itself).
+// It executes the provided traverseAction on each node in that subgraph.
+func (g *AcyclicGraph) TraverseTopologicalTo(end string, tAction traverseAction) error {
+	g.muDAG.RLock()
+	defer g.muDAG.RUnlock()
+
+	endNode, exists := g.nodes[end]
+	if !exists {
+		return errors.New("end node does not exist")
+	}
+
+	parentsMap := make(map[string][]*node)
+	for _, parentNode := range g.nodes {
+		for _, childNode := range parentNode.children {
+			parentsMap[childNode.id] = append(parentsMap[childNode.id], parentNode)
+		}
+	}
+
+	ancestorNodes := make(map[string]*node)
+	q := list.New()
+	q.PushBack(endNode)
+	visitedForSubgraph := make(map[string]bool)
+	visitedForSubgraph[end] = true
+
+	for q.Len() > 0 {
+		curr := q.Front().Value.(*node)
+		q.Remove(q.Front())
+		ancestorNodes[curr.id] = curr
+
+		// Use the parent map to find and enqueue the ancestors.
+		if parents, ok := parentsMap[curr.id]; ok {
+			for _, parent := range parents {
+				if !visitedForSubgraph[parent.id] {
+					visitedForSubgraph[parent.id] = true
+					q.PushBack(parent)
+				}
+			}
+		}
+	}
+
+	subgraphInDegree := make(map[string]int)
+	for id := range ancestorNodes {
+		subgraphInDegree[id] = 0
+	}
+	for _, node := range ancestorNodes {
+		for _, child := range node.children {
+			// Only count edges where the child is also an ancestor.
+			if _, ok := ancestorNodes[child.id]; ok {
+				subgraphInDegree[child.id]++
+			}
+		}
+	}
+
+	topoQueue := list.New()
+	for id, degree := range subgraphInDegree {
+		if degree == 0 {
+			topoQueue.PushBack(ancestorNodes[id])
+		}
+	}
+
+	visitedCount := 0
+	for topoQueue.Len() > 0 {
+		node := topoQueue.Front().Value.(*node)
+		topoQueue.Remove(topoQueue.Front())
+
+		tAction.Do(&Traverser{node: node})
+		visitedCount++
+
+		for _, child := range node.children {
+			if _, ok := ancestorNodes[child.id]; ok {
+				subgraphInDegree[child.id]--
+				if subgraphInDegree[child.id] == 0 {
+					topoQueue.PushBack(child)
+				}
+			}
+		}
+	}
+
+	if visitedCount != len(ancestorNodes) {
+		return errors.New("ancestor subgraph has a cycle, topological traversal not possible")
+	}
+
+	return nil
+}
+
 // hasCycleHelper is a utility function to check for cycles in the graph
 func (g *AcyclicGraph) hasCycleHelper(node *node, visited map[string]bool, recStack map[string]bool) bool {
 	if recStack[node.id] {
